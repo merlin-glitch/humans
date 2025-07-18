@@ -16,10 +16,10 @@ MIN_HOUSE_DISTANCE = 30
 # config.py
 
 
-Nbre_HUMANS = 20
+Nbre_HUMANS = 10
 # ── Taille de la carte (en cellules) ────────────────────────────────────────
 # Remplacez par les dimensions réelles de votre .map
-MAP_WIDTH  = 90
+MAP_WIDTH  = 100
 MAP_HEIGHT = 60
 
 # ── Taille d’une cellule (en pixels) ───────────────────────────────────────
@@ -33,11 +33,24 @@ TERRAIN_PALETTE = {
     (  0,   0,   0): -1,   # black → obstacle
     ( 255, 0,   0):  2,   # green → safe space 1
     (0,   0,   128):  3,   # darkblue   → safe space 2
-    ( 128, 0,   128):  4,   # purple → food zone 1
+    ( 54, 109,   70):  4,   # purple → food zone 1
     (255,   0,   255):  5,   # pink   → food zone 2
     (94,  185,   30):  6,   # green   → grass
 
 }
+
+NEW_PALETTE = {
+    (255, 255,   56):  0,   # gold  → plage
+    (  0,   0, 255):  1,   # blue  → océan
+    (  0,   0,   0): -1,   # black → obstacle
+    ( 255, 0,   0):  2,   # red → safe space 1
+    (0,   0,   128):  3,   # darkblue   → safe space 2
+    (94,  200,   30):  4,   # green → food zone 1
+    (255,   0,   255):  5,   # pink   → food zone 2
+    (94,  185,   30):  6,   # green   → grass
+
+}
+
 
 # ── Paramètres de la nourriture ────────────────────────────────────────────
 
@@ -52,9 +65,9 @@ INITIAL_FOOD_COUNT = Nbre_HUMANS # 1 unité pour chaque human
 
 # every SPAWN_INTERVAL ticks, spawn FOOD_SPAWN_COUNT new food items
 SPAWN_INTERVAL     = 50      
-FOOD_SPAWN_COUNT   = 100        
+FOOD_SPAWN_COUNT   = 50        
 
 # how long (in ticks) a piece of food remains alive
 FOOD_LIFETIME      = 900      
 # how many items per tile max
-FOOD_STACK        = 50
+FOOD_STACK        = 15

@@ -1,18 +1,41 @@
 
+
 # main.py
 import random
+from typing import List, Tuple, Dict
 
 import numpy as np
 import pygame
+import pygame_menu
 
-from menu import show_menu
-from config import *
-from human import Human
+from menu import (
+    Slider,
+    handle_pause_event,
+    create_action_buttons,
+    handle_action_buttons,
+    draw_action_buttons
+)
+from config import (
+    MAP_WIDTH, MAP_HEIGHT, CELL_SIZE,
+    INITIAL_FOOD_COUNT, FOOD_STACK, FOOD_LIFETIME,
+    SPAWN_INTERVAL, FOOD_SPAWN_COUNT, Nbre_HUMANS
+)
+from human import Human, House, draw_human
 from caracteristics import TrustSystem
-from ressource import *
+from ressource import (
+    Resource, map_draw, map_manage,
+    pixel_update, display_house_storage
+)
+from common import (
+    export_trust_matrix,
+    export_house_contributions,
+    plot_avg_trust_per_house,
+    plot_within_vs_between_trust,
+    plot_sharing_counts,
+    boost_house_trust
+)
 
-#-----------------display human count-----------------
-def display_human_counts(screen, humans, font):
+def display_human_counts(screen, humans: List[Human], font: pygame.font.Font):
     """
     Renders alive/dead counts in the bottom‐right corner.
     """
@@ -20,222 +43,312 @@ def display_human_counts(screen, humans, font):
     dead  = len(humans) - alive
     text  = f"Alive: {alive}   Dead: {dead}"
     surf  = font.render(text, True, (255,255,255))
-    # position 10px from bottom‐right
     x = MAP_WIDTH*CELL_SIZE - 10
     y = MAP_HEIGHT*CELL_SIZE - 10
     rect = surf.get_rect(bottomright=(x, y))
-    screen.blit(surf, rect)    
+    screen.blit(surf, rect)
 
-def draw_legend(screen, cell_size, font):
+def draw_legend(screen, cell_size: int, font: pygame.font.Font):
     """
     Draws a larger legend in the bottom-left corner:
       ▉ energy   (green)
-      ▉ slp      (blue)
+      ▉ sleep    (blue)
       ▉ bag_cap  (red)
     """
-    # Legend entries (label, color)
     entries = [
-        ("energy",  (0, 255, 0)),
-        ("sleep",     (0, 128, 255)),
-        ("bag_capacity", (255,   0,   0)),
+        ("energy",      (0, 255,   0)),
+        ("sleep",       (0, 128, 255)),
+        ("bag_capacity",(255,   0,   0)),
     ]
-
-    # Sizing & spacing
-    margin    = cell_size  # distance from edges
-    swatch    = 2*cell_size  # square size
-    spacing   = swatch *0.6
-    line_h    = swatch + spacing
-
-
-    # Starting coords: bottom-left, going up
+    margin  = cell_size
+    swatch  = 2*cell_size
+    spacing = int(swatch * 0.6)
+    line_h  = swatch + spacing
     screen_h = MAP_HEIGHT * cell_size
     start_x  = margin
     start_y  = screen_h - margin - line_h * len(entries)
 
     for i, (label, color) in enumerate(entries):
         y = start_y + i * line_h
-        # Draw color swatch
         rect = pygame.Rect(start_x, y, swatch, swatch)
         pygame.draw.rect(screen, color, rect)
-        pygame.draw.rect(screen, (0,0,0), rect, 2)  # border
-
-        # Draw label to the right of the swatch
+        pygame.draw.rect(screen, (0,0,0), rect, 2)
         text_surf = font.render(label, True, (255,255,255))
-        text_pos  = (start_x + swatch + spacing, y + (swatch - text_surf.get_height()) // 2)
+        text_pos  = (start_x + swatch + spacing,
+                     y + (swatch - text_surf.get_height())//2)
         screen.blit(text_surf, text_pos)
 
+# ─── simulation parameters (will be mutated by sliders) ─────────────────────
+params = {
+    'map_width': MAP_WIDTH,
+    'map_height': MAP_HEIGHT,
+    'cell_size': CELL_SIZE,
+    'food_count': FOOD_STACK,
+    'max_life':   FOOD_LIFETIME,
+    'spawn_interval': SPAWN_INTERVAL,
+    'house_count':   2,          # you only had two safe‐zones 2&3
+    'house_size':    1,          # we treat each avg‐pixel as one
+    'min_house_distance': 0
+}
 
-# ─── 1) Main Simulation ──────────────────────────────────────────────────────
-def start_simulation(params):# check menu.py ==> params= {'map_width': MAP_WIDTH,'map_height': MAP_HEIGHT,'cell_size': CELL_SIZE,'food_count': FOOD_COUNT,'max_life': MAX_LIFE,'spawn_interval': SPAWN_INTERVAL,'house_count': HOUSE_COUNT,'house_size': HOUSE_SIZE,'min_house_distance': MIN_HOUSE_DISTANCE}
-    # build codes from PNG/text
-    #terrain_txt = map_draw('beach1.png')
+def start_simulation(params):
+    # --- build & draw the static map from PNG → codes
     terrain_txt = map_draw('easy_food.png')
     codes       = np.loadtxt(terrain_txt, dtype=int)
     H, W        = codes.shape
+    rev_color   = {code: rgb for rgb, code in map_draw.__globals__['TERRAIN_PALETTE'].items()}
 
-    # invert TERRAIN_PALETTE for drawing static ( from code to rgb color to show the static parts of the map)
-    rev_color = {code: rgb for rgb, code in TERRAIN_PALETTE.items()}
-
-    # extract houses from safe‐zone colors (2 & 3) 
-    houses = []
+    # --- find the two house‐centers & their colors
+    houses: List[House] = []
     for safe_code in (2, 3):
-        pts = [(x, y) for y in range(H) for x in range(W) if codes[y, x] == safe_code]
-        if not pts:
-            continue
-        avg_x = sum(x for x, y in pts) // len(pts)
-        avg_y = sum(y for x, y in pts) // len(pts)
-        houses.append(House(avg_x, avg_y))
+        pts = [(x,y) for y in range(H) for x in range(W) if codes[y,x]==safe_code]
+        if not pts: continue
+        avg_x = sum(x for x,y in pts)//len(pts)
+        avg_y = sum(y for x,y in pts)//len(pts)
+        house_color = rev_color.get(safe_code, (150,75,0))
+        houses.append(House(avg_x, avg_y, house_color))
 
-    # init pygame
+    # --- Pygame init
     pygame.quit()
     pygame.init()
-    screen = pygame.display.set_mode((MAP_WIDTH * CELL_SIZE, MAP_HEIGHT * CELL_SIZE))
+    screen = pygame.display.set_mode((MAP_WIDTH*CELL_SIZE, MAP_HEIGHT*CELL_SIZE))
     pygame.display.set_caption("Simulation ressources, maisons et humains")
-    font = pygame.font.Font(None, max(12, CELL_SIZE * 4))
+    font = pygame.font.Font(None, max(12, CELL_SIZE*4))
 
-    # determine food‐zone tiles (codes 4 & 5)
-    food_zone_codes = {4, 5}
-    food_zones = [(x, y)
-                  for y in range(H) for x in range(W)
-                  if codes[y, x] in food_zone_codes]
+    # --- food‐zones
+    food_zone_codes = {4,5}
+    food_zones = [(x,y) for y in range(H) for x in range(W) if codes[y,x] in food_zone_codes]
 
-    
-    # initial resources (only from food_zones)
+    # --- seed initial food
     resources, food_birth = [], {}
-    seeded = 0
-    while seeded < INITIAL_FOOD_COUNT:
-        x, y = random.choice(food_zones)
-        # only add if under stack limit
-        if sum(1 for r in resources if (r.x, r.y) == (x, y)) < FOOD_STACK:
-            resources.append(Resource(x, y, life=FOOD_LIFETIME))
-            food_birth.setdefault((x, y), 0)
-            seeded += 1
+    while len(resources)<INITIAL_FOOD_COUNT:
+        x,y = random.choice(food_zones)
+        if sum(1 for r in resources if (r.x,r.y)==(x,y)) < FOOD_STACK:
+            resources.append(Resource(x,y, life=FOOD_LIFETIME))
+            food_birth.setdefault((x,y), 0)
 
-    # spawn humans: for now using house coordinates to avoid spawning in -1 tiles
-    humans = []
+    # --- spawn humans evenly
+    total_to_spawn = Nbre_HUMANS
+    base, extra = divmod(total_to_spawn, len(houses))
+    extra_idx   = random.randrange(len(houses)) if extra else -1
+
+    humans: List[Human] = []
     humanid = 0
-    for house in houses:
-        spawn_x = min(MAP_WIDTH - 1, house.x + 2)
-        spawn_y = min(MAP_HEIGHT - 1, house.y + 2)
-        for _ in range(Nbre_HUMANS):
-            humans.append(Human(
-                human_id=humanid,
-                sex=random.choice(['homme', 'femme']),
-                x=spawn_x, y=spawn_y,
-                home=house,
-                codes=codes
-            ))
+    for idx, house in enumerate(houses):
+        count = base + (1 if idx==extra_idx else 0)
+        for _ in range(count):
+            humans.append(Human(human_id=humanid,
+                                sex=random.choice(['homme','femme']),
+                                x=house.x, y=house.y,
+                                home=house, codes=codes))
             humanid += 1
 
     trust_system = TrustSystem()
-    
 
-    clock, tick = pygame.time.Clock(), 0
+    # --- sliders & reset/export buttons
+    slider = Slider(
+      rect=(MAP_WIDTH*CELL_SIZE-80, 50, 30, MAP_HEIGHT*CELL_SIZE-100),
+      min_val=1, max_val=500, initial=Nbre_HUMANS,
+      orientation='vertical'
+    )
+    speed_slider = Slider(
+      rect=((MAP_WIDTH*CELL_SIZE)//4,
+            MAP_HEIGHT*CELL_SIZE-120,
+            (MAP_WIDTH*CELL_SIZE)//2,
+            20),
+      min_val=0.1, max_val=100.0, initial=1.0,
+      orientation='horizontal'
+    )
+    action_rects = create_action_buttons(speed_slider)
+
+    last_storage = {house:house.storage for house in houses}
+    total_shares = 0
+    clock, tick, paused = pygame.time.Clock(), 0, False
+
     running = True
     while running:
         for e in pygame.event.get():
-            if e.type == pygame.QUIT:
+            if e.type==pygame.QUIT:
                 running = False
+            paused = handle_pause_event(e, paused)
+            slider.handle_event(e)
+            speed_slider.handle_event(e)
 
-        # update + cull resources
-        for r in resources: # update de chaque ressource r dans resources[]
-            r.update()
-        resources = [r for r in resources if r.is_alive()] # rebuilds resources[] by only keeping the r alive
-        alive_coords = {(r.x, r.y) for r in resources}
-        for coord in list(food_birth.keys()): # on enleve de la carte les food morts 
-            if coord not in alive_coords:
-                food_birth.pop(coord, None)
-
-        # # periodic spawn (only in food_zones)
-
-        # every SPAWN_INTERVAL ticks, drop FOOD_SPAWN_COUNT new bits of food
-        if tick % SPAWN_INTERVAL == 0:
-            for _ in range(FOOD_SPAWN_COUNT):
-                x, y = random.choice(food_zones)
-                if sum(1 for r in resources if (r.x, r.y) == (x, y)) < FOOD_STACK:
-                    resources.append(Resource(x, y, life=FOOD_LIFETIME))
-                    food_birth[(x, y)] = tick
-
-
-        # humans act
-        for h in humans:
-            picked = h.step(resources, houses, humans)
-            if picked is not None:
-                food_birth.pop(picked, None)
-    
+            # only export in‐game, no more recursive Reset
+        handle_action_buttons(
+            e,
+            action_rects,
+            on_reset = lambda: start_simulation(params),
+            on_export = lambda: export_trust_matrix(trust_system, humans, "trust_matrix.csv")
+        )
 
 
 
-        # # ─── update trust on meeting/sharing memory ──────────────────────────
+           
+        if not paused:
+            # new, correct logic:
+            target = int(slider.value)
+            num_houses = len(houses)
 
-         # ─── update trust on every meeting ───────────────────────────────────
-        for h1 in humans:
-            for h2 in humans:
-                if h1 is not h2 and (h1.x, h1.y) == (h2.x, h2.y):
-                    # register the meeting (success or failure decided inside)
-                    trust_system.update_on_meeting(h1, h2, resources)
-                    # clear last_collected so it only counts once
-                    h1.last_collected = None
-                    h2.last_collected = None
+            # 1) compute how many each house *should* have
+            base, extra = divmod(target, num_houses)
+            # first `extra` houses get (base+1), the rest get base
+            desired = {
+                house: base + (1 if i < extra else 0)
+                for i, house in enumerate(houses)
+            }
+
+            # 2) count how many each house *actually* has right now
+            counts = {house: 0 for house in houses}
+            for h in humans:
+                counts[h.home] += 1
+
+            # 3) for each house, either spawn or cull to reach desired[house]
+            for house, want in desired.items():
+                have = counts[house]
+                if have < want:
+                    # spawn (want - have) new humans *at that house’s center*
+                    for _ in range(want - have):
+                        spawn_x = house.x   # house.x is already the center
+                        spawn_y = house.y
+                        humans.append(Human(
+                            human_id=humanid,
+                            sex=random.choice(['homme','femme']),
+                            x=spawn_x, y=spawn_y,
+                            home=house,
+                            codes=codes
+                        ))
+                        humanid += 1
+                elif have > want:
+                    # remove (have - want) humans *from that house only*
+                    to_kill = have - want
+                    # traverse backwards so deletes don’t shift indices
+                    for idx in range(len(humans)-1, -1, -1):
+                        if to_kill == 0:
+                            break
+                        if humans[idx].home is house:
+                            del humans[idx]
+                            to_kill -= 1
 
 
-#------------------to debug-------------------
-        # # After all pair updates, count total meetings recorded
-        # total_meetings = sum(ts for stats in trust_system.hints.values()
-        #                     for _, (_, ts) in stats["pair_stats"].items())
-        # print(f"Total pairwise interactions recorded so far: {total_meetings}")
-        
-        # # show trust_matrix each 5 ticks
-        # if tick % 5 == 0:
-        #     ids = sorted(h.id for h in humans)
-        #     print(f"\nTick {tick} — Trust Matrix")
-        #     header = "   " + "  ".join(f"{i:2d}" for i in ids)
-        #     print(header)
-        #     for row_id in ids:
-        #         row_scores = [
-        #             f"{trust_system.trust_score(row_id, col_id):.1f}"
-        #             for col_id in ids
-        #         ]
-        #         print(f"{row_id:2d} " + "  ".join(row_scores))
-#---------------------------------------------------------------------
+            # resources update & spawn
+            for r in resources: r.update()
+            resources = [r for r in resources if r.is_alive()]
+            if tick % SPAWN_INTERVAL == 0:
+                for _ in range(FOOD_SPAWN_COUNT):
+                    x,y = random.choice(food_zones)
+                    if sum(1 for r in resources if (r.x,r.y)==(x,y)) < FOOD_STACK:
+                        resources.append(Resource(x,y, life=FOOD_LIFETIME))
+                        food_birth[(x,y)] = tick
 
-        # draw static terrain & houses
-        screen.fill((0, 0, 0))
-        for y in range(H):
-            for x in range(W):
-                color_static_map = rev_color.get(codes[y, x], (50, 50, 50))
-                pygame.draw.rect(screen, color_static_map,
-                                 pygame.Rect(x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE))
-        for h in houses:
-            pygame.draw.rect(screen,
-                             (150, 75, 0),
-                             pygame.Rect(h.x*CELL_SIZE, h.y*CELL_SIZE, CELL_SIZE, CELL_SIZE))
+            # humans act
+            for h in humans:
+                picked, shared = h.step(resources, houses, humans, trust_system)
+                if picked is not None:
+                    food_birth.pop(picked, None)
+                if shared:
+                    total_shares += 1
 
-        # draw dynamic food & humans
-        managed = map_manage(codes, food_birth, tick)
-        alive_humans = [h for h in humans if h.alive]
-        pixel_update(screen, managed, alive_humans, font)
+        # detect new deposit → boost house trust …
 
-        # display alive/dead counts
-        display_human_counts(screen, humans, font)
-        #display legend
-        draw_legend(screen, CELL_SIZE, font)
-        #display house storage
-        display_house_storage(screen, houses, CELL_SIZE, font)
 
-        pygame.display.flip()
-        tick += 1
-        clock.tick(25)
+                # detect new deposit → boost house trust
+                new_store = h.home.storage
+                if new_store>last_storage[h.home]:
+                    boost_house_trust(trust_system, h, humans, increment=0.1)
+                    last_storage[h.home] = new_store
 
-    # ─── after loop ends, export CSV ─────────────────────────────────────────
-    trust_system.export_trust_matrix(humans, "/home/oussama/ants/humans/trust_matrix.csv")
-    print("\n=== Final Trust Summaries ===")
+            # render everything
+            screen.fill((0,0,0))
+            for y in range(H):
+                for x in range(W):
+                    c = rev_color.get(codes[y,x], (50,50,50))
+                    pygame.draw.rect(screen, c,
+                                     pygame.Rect(x*CELL_SIZE, y*CELL_SIZE,
+                                                 CELL_SIZE, CELL_SIZE))
+            for house in houses:
+                pygame.draw.rect(screen, house.color,
+                                 pygame.Rect(house.x*CELL_SIZE,
+                                             house.y*CELL_SIZE,
+                                             CELL_SIZE, CELL_SIZE))
+
+            managed = map_manage(codes, food_birth, tick)
+            alive = [h for h in humans if h.alive]
+            pixel_update(screen, managed, alive, font)
+
+            display_human_counts(screen, humans, font)
+            draw_legend(screen, CELL_SIZE, font)
+            display_house_storage(screen, houses, CELL_SIZE, font)
+
+            slider.draw(screen, font)
+            speed_slider.draw(screen, font)
+            draw_action_buttons(screen, action_rects, font)
+
+            share_text = font.render(f"Shares: {total_shares}", True, (255,255,0))
+            screen.blit(share_text, (10,10))
+
+            pygame.display.flip()
+            tick += 1
+            clock.tick(int(25 * speed_slider.value))
+
+    # ─── after simulation ends ────────────────────────────────────────────────
+    export_trust_matrix(trust_system, humans, "trust_matrix.csv")
     for h in humans:
         trust_system.display_trust_summary(h.id)
 
+    export_house_contributions(humans, houses[0],
+                               "contributions_house1.csv",
+                               "contribution_to_house1")
+    export_house_contributions(humans, houses[1],
+                               "contributions_house2.csv",
+                               "contribution_to_house2")
+    pygame.quit()
+    plot_avg_trust_per_house(humans, trust_system)
+    plot_within_vs_between_trust(humans, trust_system)
+    plot_sharing_counts(humans, trust_system)
+
+    
+
+def show_menu():
+    import pygame, pygame_menu
+ 
+    # (and whatever else you need imported here)
+
+    pygame.init()
+    surface = pygame.display.set_mode((800, 550))
+
+    # This flag tells us whether Start was clicked
+    start_requested = False
+
+    # Build the menu
+    menu = pygame_menu.Menu(
+        title='Paramètres',
+        width=800,
+        height=550,
+        theme=pygame_menu.themes.THEME_DARK
+    )
+
+    # The Start callback
+    def on_start():
+        nonlocal start_requested   # <— you **must** do this
+        start_requested = True
+        menu.disable()             # <— this breaks out of menu.mainloop()
+
+    # Add the two buttons
+    menu.add.button('Start', on_start)
+    menu.add.button('Quit',  pygame_menu.events.EXIT)
+
+    # Run the menu loop (blocks here until disabled or EXIT)
+    menu.mainloop(surface)
+
+    # Tear down the menu’s pygame
     pygame.quit()
 
+    # If Start was clicked, launch your sim:
+    if start_requested:
+        start_simulation(params)
+
+        
 
 if __name__ == "__main__":
-    
     show_menu()

@@ -20,14 +20,7 @@ class Resource:
         return self.life > 0
     # nourriture en vie
 #
-class House:
-    def __init__(self, x, y):
-        self.x, self.y = x, y
-        self.storage      = 0       # ← total food units stored here
 
-    def store_food(self, amount: int) -> None:
-        """Add `amount` units into this house’s storage."""
-        self.storage += amount
 
 
 # ─── helper ───────────────────────────────────────────────────────────────────
@@ -70,18 +63,17 @@ def map_draw(image_filename: str) -> str:
     #Retourne un tableau (h, w, 3) de valeurs RGB où :chaque (x,y) dans food_birth_map subit une interpolation de FOOD_START_RGB → FOOD_END_RGB sur FOOD_LIFETIME ticks
     
     
-
 def map_manage(codes: np.ndarray, food_birth: dict, tick: int) -> np.ndarray:
-    H, W = codes.shape #using the "codes" already generated we define the H and W of the map
-    managed = np.full((H, W, 3), -1, dtype=int)# managed(H,W,rgb values) , -1 is their default value
-    for (x, y), born in food_birth.items(): #food_birth[(coord_x,coord_y),tick]
-        age  = tick - born #each SPAWN_INTERVAL a new food is born
-        frac = min(max(age / FOOD_LIFETIME, 0.0), 1.0)
-        r = int(FOOD_START_RGB[0] * (1 - frac) + FOOD_END_RGB[0] * frac)  # FOOD_START_RGB is dark green rgb , FOOD_END_RGB is dark_red rgb , check config.py
-        g = int(FOOD_START_RGB[1] * (1 - frac) + FOOD_END_RGB[1] * frac)
-        b = int(FOOD_START_RGB[2] * (1 - frac) + FOOD_END_RGB[2] * frac)
+    H, W = codes.shape
+    # -1 means “no food here”
+    managed = np.full((H, W, 3), -1, dtype=int)
+
+    for (x, y), born in food_birth.items():
+        # only draw if inside the map and still “alive” (we cull dead food elsewhere)
         if 0 <= y < H and 0 <= x < W:
-            managed[y, x] = (r, g, b)
+            # no fade: always use the start‐of‐life color
+            managed[y, x] = tuple(FOOD_START_RGB)
+
     return managed
 
 # ─── 4) Draw only dynamic layers ──────────────────────────────────────────────
@@ -89,7 +81,7 @@ def map_manage(codes: np.ndarray, food_birth: dict, tick: int) -> np.ndarray:
    # Dessine sur `screen` :
     # • food cells : pour chaque pixel où managed_map[y,x] != -1, dessine un rectangle CELL_SIZE×CELL_SIZE de la couleur RGB
     # • humains   : dessin via human.draw_human (cercles + compteurs)
-  
+
 def pixel_update(screen, managed_map, humans, font):
     H, W, _ = managed_map.shape
     # draw food
@@ -97,11 +89,13 @@ def pixel_update(screen, managed_map, humans, font):
         for x in range(W):
             r, g, b = managed_map[y, x]
             if r >= 0:
-                rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+                rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE,
+                                   CELL_SIZE, CELL_SIZE)
                 pygame.draw.rect(screen, (r, g, b), rect)
     # draw humans
     for h in humans:
-        draw_human(screen, h, CELL_SIZE, humans[0].home, font)
+        # no more reference_house needed, draw_human picks up h.home.color
+        draw_human(screen, h, CELL_SIZE, font)
 
 def display_house_storage(screen, houses, cell_size, font):
     """
