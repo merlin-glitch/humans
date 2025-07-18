@@ -199,10 +199,10 @@ class Human:
         resources,
         houses,
         humans,
-        trust_system,
+        trust_system, is_day: bool,
         action_cost: float = 0.01,
         food_gain: float = 1.0,
-        decay_rate: float = 0.005
+        decay_rate: float = 0.005,
     ) -> Tuple[Optional[Tuple[int,int]], bool]:
         """
         One tick of behavior: movement, foraging, depositing, sharing.
@@ -215,6 +215,30 @@ class Human:
         1. Callers can always unpack two values without a crash.
         2. We avoid `TypeError: cannot unpack non-iterable NoneType`.
         """
+
+
+        """
+        One tick of behavior.
+        Now if `is_day` is False, they head home & sleep.
+        Returns (picked_food_coord or None, shared: bool).
+        """
+        # ── NIGHT BEHAVIOR ───────────────────────────────
+        if not is_day:
+            # if not already inside its house, go home
+            if (self.x, self.y) != (self.home_x, self.home_y):
+                self.move_towards(self.home_x, self.home_y, action_cost)
+            else:
+                # once home, accrue sleep
+                self.sleep(True)
+            # no foraging, no sharing at night
+            return None, False
+
+        # ── DAY BEHAVIOR (previous implementation) ────────
+        in_house = any(
+            h.x <= self.x < h.x + HOUSE_SIZE and
+            h.y <= self.y < h.y + HOUSE_SIZE
+            for h in houses
+        )
         # ─── initialize outputs ────────────────────────────────────────────────
         picked = None
         shared = False
