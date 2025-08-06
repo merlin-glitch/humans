@@ -38,6 +38,9 @@ class TrustSystem:
     Trust score calculation:
         successes / total_interactions -> ratio in [0,1]
         mapped to [-1,1] by: 2*ratio - 1
+
+
+    i switched it back from [-1,1] to [0,1] 
     """
 
     def __init__(self) -> None:
@@ -66,18 +69,18 @@ class TrustSystem:
         self.init_human(h_id)
         stats: Dict[int, Tuple[int,int]] = self.hints[h_id]["pair_stats"]  # type: ignore
         if other_id not in stats:
-            return 0.0
+            return 0.5
         succ, total = stats[other_id]
         if total == 0:
             return 0.0
-        ratio = succ / total
-        return 2 * ratio - 1
+         #changed to [0,1] intervalle
+        return succ / total
 
     def _refresh_trust_lists(self, h_id: int) -> None:
         """
         Recompute:
-          - trusted: other_ids with score > 0
-          - not_trusted: other_ids with score < 0
+          - trusted: other_ids with score > 0.5
+          - not_trusted: other_ids with score < 0.5
           - favorite_people: top‑5 other_ids by descending score
         """
         data = self.hints[h_id]
@@ -88,10 +91,10 @@ class TrustSystem:
         scored: List[Tuple[int,float]] = []
 
         for other_id, (succ, total) in stats.items():
-            score = 0.0 if total == 0 else 2 * (succ / total) - 1
-            if score > 0:
+            score = 0.0 if total == 0 else succ / total
+            if score > 0.5:
                 trusted.add(other_id)
-            elif score < 0:
+            elif score < 0.5:
                 not_trusted.add(other_id)
             scored.append((other_id, score))
 
@@ -119,18 +122,17 @@ class TrustSystem:
         """
         self.init_human(h_id)
         data = self.hints[h_id]
-        print(f"Human {h_id} summary:")
-        print(f"  Interactions: {self.nbre_contacted(h_id)}")
-        print(f"  Trusted (>0): {sorted(data['trusted'])}")
-        print(f"  Distrusted (<0): {sorted(data['not_trusted'])}")
-        print(f"  Top‑5 trusted: {data['favorite_people']}")
+        # print(f"Human {h_id} summary:")
+        # print(f"  Interactions: {self.nbre_contacted(h_id)}")
+        # print(f"  Trusted (>0): {sorted(data['trusted'])}")
+        # print(f"  Distrusted (<0): {sorted(data['not_trusted'])}")
+        # print(f"  Top‑5 trusted: {data['favorite_people']}")
         # raw scores
         for other_id, (succ, total) in data["pair_stats"].items():  # type: ignore
-            score = 0.0 if total == 0 else 2*(succ/total)-1
-            print(f"    -> {other_id}: {score:.3f}")
+            score = 0.0 if total == 0 else succ/total
+            #print(f"    -> {other_id}: {score:.3f}")
 
-    
-                
+
     def increase_trust(
         self,
         trustor_id: int,
@@ -140,33 +142,35 @@ class TrustSystem:
         """
         Bump by `increment` the trust that trustor_id has in trustee_id,
         keeping the underlying ratio precise (no integer rounding).
+        Now trust_score ∈ [0,1], so we clamp into [0,1].
         """
-        # 1) ensure both sides exist
+        # 1) Ensure both sides exist
         self.init_human(trustor_id)
         self.init_human(trustee_id)
 
         stats = self.hints[trustor_id]["pair_stats"]
 
-        # 2) fetch previous (succ, total), default succ=0.0, total=1
+        # 2) Fetch previous (succ, total); default to (0.0, 1)
         succ, total = stats.get(trustee_id, (0.0, 1))
 
-        # 3) compute old continuous trust score
+        # 3) Compute old score (succ/total ∈ [0,1])
         old_score = self.trust_score(trustor_id, trustee_id)
 
-        # 4) clamp new score in [-1,1]
-        new_score = max(-1.0, min(1.0, old_score + increment))
+        # 4) Add your increment, clamp to [0,1]
+        new_score = min(1.0, max(0.0, old_score + increment))
 
-        # 5) map back to ratio ∈ [0,1]
-        new_ratio = (new_score + 1.0) / 2.0
+        # 5) Now ratio==score, so…
+        new_ratio = new_score
 
-        # 6) compute new success count *as a float*
+        # 6) Translate back into a float success count over the same total
         new_succ = new_ratio * total
 
-        # 7) store back (succ now a float, total unchanged)
+        # 7) Store back
         stats[trustee_id] = (new_succ, total)
 
-        # 8) refresh the derived lists
+        # 8) Refresh derived lists
         self._refresh_trust_lists(trustor_id)
+            
 
 
     def update_on_meeting(

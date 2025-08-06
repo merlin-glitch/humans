@@ -20,6 +20,10 @@ class Resource:
         return self.life > 0
     # nourriture en vie
 #
+    
+def resource_spawn_interval_inverse(f_avg: float, I_max: int = 200, k: float = 0.5, I_min: int = 10) -> int:
+    interval = I_max / (1 + k * f_avg)
+    return max(I_min, int(interval))
 
 
 

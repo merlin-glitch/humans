@@ -16,7 +16,7 @@ MIN_HOUSE_DISTANCE = 30
 # config.py
 
 
-Nbre_HUMANS = 10
+Nbre_HUMANS = 20
 # ── Taille de la carte (en cellules) ────────────────────────────────────────
 # Remplacez par les dimensions réelles de votre .map
 MAP_WIDTH  = 100
@@ -71,3 +71,9 @@ FOOD_SPAWN_COUNT   = 50
 FOOD_LIFETIME      = 900      
 # how many items per tile max
 FOOD_STACK        = 15
+
+#energy cost to mate
+ENERGY_COST       = 5.0
+# DAY length and mating cooldown
+DAY_LENGTH        = 350
+MATING_COOLDOWN   = 1 * DAY_LENGTH  # 30 days
