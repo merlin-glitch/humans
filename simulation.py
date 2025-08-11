@@ -7,7 +7,7 @@ from itertools import combinations
 
 from human import Human, House
 from caracteristics import TrustSystem
-from ressource import Resource, map_draw
+from ressource import Resource, map_draw, resources, resource_array, number_of_resources
 from common import (
     boost_house_trust,
     to_mate,
@@ -20,6 +20,8 @@ from config import (
     INITIAL_FOOD_COUNT, FOOD_STACK, FOOD_LIFETIME,
     SPAWN_INTERVAL, FOOD_SPAWN_COUNT, Nbre_HUMANS
 )
+
+
 
 def run_simulation(num_days: int):
     """
@@ -48,15 +50,17 @@ def run_simulation(num_days: int):
 
     # seed initial resources
     food_zones = [(x,y) for y in range(H) for x in range(W) if codes[y,x] in {4,5}]
-    resources, food_birth = [], {}
-    while len(resources) < INITIAL_FOOD_COUNT:
-        x,y = random.choice(food_zones)
-        if sum(1 for r in resources if (r.x,r.y)==(x,y)) < FOOD_STACK:
-            res = Resource(x,y, life=FOOD_LIFETIME)
-            resources.append(res)
-            food_birth[(x,y)] = 0
+    food_birth =  {}
 
-    # spawn humans evenly
+    total_resources  = 0
+    while total_resources < INITIAL_FOOD_COUNT:
+        x,y = random.choice(food_zones)
+        if (number_of_resources(x, y)==0):
+            resources[total_resources, :] = [x, y, FOOD_LIFETIME]
+            food_birth[(x,y)] = 0
+            total_resources += 1
+
+    # spawn humans evenly:
     humans = []
     humanid = 0
     base, extra = divmod(Nbre_HUMANS, len(houses))
@@ -94,16 +98,29 @@ def run_simulation(num_days: int):
         if tick % SPAWN_INTERVAL == 0:
             for _ in range(FOOD_SPAWN_COUNT):
                 x,y = random.choice(food_zones)
-                cnt = sum(1 for r in resources if (r.x,r.y)==(x,y))
-                if cnt < FOOD_STACK:
-                    resources.append(Resource(x,y, life=FOOD_LIFETIME))
+
+                if number_of_resources(x, y) < FOOD_STACK:
+                    resource_array[total_resources, :] = [x, y, FOOD_LIFETIME]
                     food_birth[(x,y)] = tick
 
-        # — update existing food lifetimes
-        for r in resources:
-            r.update()
-        resources = [r for r in resources if r.is_alive()]
+        resources = resource_array[total_resources, :]
 
+        # — update existing food lifetimes
+
+        resources[:, 2] = -1
+
+        #We remove all elements not used
+        indices_to_remove = np.where(resources[:, 2] == 0)[0] # We get the first coordinates ( index ) of the ressource qithout lifetime of 0
+        vectors_to_remove = resources [indices_to_remove]
+        #We pu everything in end position in place of the elements to removes
+        end_positions = np.arange(total_resources - indices_to_remove.size, total_resources)
+        resources[indices_to_remove] = resources[end_positions]
+
+        total_resources -= indices_to_remove.size
+        
+        #new dimension without consumed resources
+        resources = resource_array[total_resources, :]
+   
         # — each human acts
         for h in humans:
             if not h.alive:

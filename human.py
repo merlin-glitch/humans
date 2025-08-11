@@ -5,6 +5,8 @@ import pygame
 from typing import Tuple, List
 from config import *
 from caracteristics import *
+from ressource import resources, number_of_resources
+
 
 class House:
     def __init__(self, x: int, y: int, color: Tuple[int, int, int]):
@@ -303,7 +305,7 @@ class Human:
             if (self.x, self.y) != (mx, my):
                 self.move_towards(mx, my, action_cost)
                 return None, False
-            if not any((r.x, r.y) == (mx, my) for r in resources):
+            if (number_of_resources(self.x, self.y) == 0):
                 self.memory_spot = None
 
         # prune stale
@@ -328,16 +330,27 @@ class Human:
         # 7) Pick up / eat resource
         picked = None
         if not in_house and self.bag < self.bag_capacity:
-            for resource in list(resources):
-                dx, dy = resource.x - self.x, resource.y - self.y
-                if dx*dx + dy*dy <= 1.5**2:
-                    if self.energy >= 9:
-                        self.store_in_bag(spot=(resource.x, resource.y))
-                    else:
-                        self.eat(food_gain, spot=(resource.x, resource.y))
-                    resources.remove(resource)
-                    picked = (resource.x, resource.y)
-                    break
+            if number_of_resources(self.x, self.y) > 0:
+                if self.energy >= 9:
+                    self.store_in_bag(spot=(self.x, self.y))
+                else:
+                    self.eat(food_gain, spot=(self.x, self.y))
+
+                remove_resource(x, y)
+                picked = (self.x, self.y)
+
+
+
+          #  for resource in list(resources):
+          #      dx, dy = resource.x - self.x, resource.y - self.y
+          #      if dx*dx + dy*dy <= 1.5**2: #pourquoi 1.5 ?
+          #          if self.energy >= 9:
+          #              self.store_in_bag(spot=(resource.x, resource.y))
+          #          else:
+          #              self.eat(food_gain, spot=(resource.x, resource.y))
+          #          resources.remove(resource)
+          #          picked = (resource.x, resource.y)
+          #          break
 
 
 

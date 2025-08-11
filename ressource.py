@@ -1,9 +1,23 @@
 import os
 import numpy as np
-import pygame
 from PIL import Image
 from config import *
-from human import draw_human
+
+
+resource_array = np.zeros(( MAP_HEIGHT*MAP_WIDTH, 3), dtype=np.int32)
+
+resources = resource_array[0, :] # no resource
+
+def number_of_resources(x, y):
+    return np.sum((resources[:, 0] == x) & (resources[:, 1] == y))
+
+def remove_resource(x, y):
+    global resources
+    indices = np.where((resources[:, 0] == x) & (resources[:, 1] == y))[0]   # all matches
+    first_resource = indices[0]
+    resources[first_resource] = resources[resources.len-1]
+    resources = resource_array[resources.len -1, :]
+
 
 
 # ─── 1) Resource & House ─────────────────────────────────────────────────────
