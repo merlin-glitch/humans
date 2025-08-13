@@ -330,7 +330,7 @@ class Human:
         if not in_house and self.bag < self.bag_capacity:
             for resource in list(resources):
                 dx, dy = resource.x - self.x, resource.y - self.y
-                if dx*dx + dy*dy <= 1.5**2:
+                if dx*dx + dy*dy <= 1**2:
                     if self.energy >= 9:
                         self.store_in_bag(spot=(resource.x, resource.y))
                     else:
@@ -338,6 +338,7 @@ class Human:
                     resources.remove(resource)
                     picked = (resource.x, resource.y)
                     break
+
 
 
 
