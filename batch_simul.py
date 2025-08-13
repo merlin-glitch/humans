@@ -1,5 +1,4 @@
 
-# simulations_fast.py
 
 import os
 import csv
