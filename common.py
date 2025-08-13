@@ -440,4 +440,4 @@ def run_competition(
     for leader_id, followers in followers_by_leader.items():
         leader = next((h for h in family if h.id == leader_id), None)
         family_color = "Blue" if leader and leader.home.color == (0, 0, 128) else "Red" if leader and leader.home.color == (255, 0, 0) else str(leader.home.color) if leader else "Unknown"
-        print(f"Leader {leader_id} ({family_color}) is followed by: {followers}")
+        #print(f"Leader {leader_id} ({family_color}) is followed by: {followers}")
