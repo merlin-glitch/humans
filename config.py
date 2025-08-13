@@ -16,7 +16,7 @@ MIN_HOUSE_DISTANCE = 30
 # config.py
 
 
-Nbre_HUMANS = 20
+Nbre_HUMANS = 10
 # ── Taille de la carte (en cellules) ────────────────────────────────────────
 # Remplacez par les dimensions réelles de votre .map
 MAP_WIDTH  = 100
@@ -64,13 +64,13 @@ FOOD_END_RGB   = (100,   0,   0)
 INITIAL_FOOD_COUNT = Nbre_HUMANS # 1 unité pour chaque human        
 
 # every SPAWN_INTERVAL ticks, spawn FOOD_SPAWN_COUNT new food items
-SPAWN_INTERVAL     = 50      
-FOOD_SPAWN_COUNT   = 50        
+SPAWN_INTERVAL     = 100      
+FOOD_SPAWN_COUNT   = 100        
 
 # how long (in ticks) a piece of food remains alive
 FOOD_LIFETIME      = 900      
 # how many items per tile max
-FOOD_STACK        = 15
+FOOD_STACK        = 20
 
 #energy cost to mate
 ENERGY_COST       = 5.0
