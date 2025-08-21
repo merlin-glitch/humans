@@ -85,8 +85,133 @@ class Resource:
         return self.life > 0
 
 
-def resource_spawn_interval_inverse(f_avg: float, I_max: int = 200, k: float = 0.5, I_min: int = 10) -> int:
-    interval = I_max / (1 + k * f_avg)
+# def resource_spawn_interval_inverse(f_avg: float, I_max: int = 200, k: float = 0.5, I_min: int = 10) -> int:
+#     interval = I_max / (1 + k * f_avg)
+#     return max(I_min, int(interval))
+# ressource.py
+
+from typing import Optional
+
+# ressource.py
+from typing import Optional
+
+# optional: read global baseline from config if available
+try:
+    from config import FOOD_SPAWN_COUNT as _SPAWN_BASELINE
+except Exception:
+    _SPAWN_BASELINE = None
+
+# def resource_spawn_interval_inverse(
+#     f_avg: float,
+#     I_max: int = 200,
+#     k: float = 0.5,
+#     I_min: int = 10,
+#     *,
+#     zone_id: Optional[int] = None,        # which zone (0/1/2)
+#     stock_today: Optional[int] = None,    # current number of food units in the zone (today)
+#     spawn_baseline: Optional[int] = None, # if None, uses config.FOOD_SPAWN_COUNT when available
+#     reset: bool = False                   # call once at sim start to clear state
+# ) -> Optional[int]:
+#     """
+#     Inverse spawn interval with permanent zone disable when stock falls too low.
+
+#     Behavior:
+#       • Per tick (normal): call with (f_avg, zone_id=z) -> returns an int interval
+#         for active zones; returns None if the zone has been permanently disabled.
+
+#       • Once per day (update rule): call with (zone_id=z, stock_today=present_count)
+#         If stock_today < 10% of spawn_baseline (default: config.FOOD_SPAWN_COUNT),
+#         the zone is permanently disabled.
+
+#       • Reset: call with reset=True at the start of each simulation run.
+
+#     Returns:
+#       int   -> spawn interval (>= I_min) for active zones
+#       None  -> zone is permanently disabled (never spawn again)
+#     """
+#     # one-time static state on the function object
+#     if not hasattr(resource_spawn_interval_inverse, "_disabled"):
+#         resource_spawn_interval_inverse._disabled = set()  # type: ignore[attr-defined]
+#     disabled = resource_spawn_interval_inverse._disabled   # type: ignore[attr-defined]
+
+#     # reset state
+#     if reset:
+#         disabled.clear()
+#         return I_min
+
+#     # daily kill-switch update
+#     if zone_id is not None and stock_today is not None and zone_id not in disabled:
+#         baseline = spawn_baseline if spawn_baseline is not None else (_SPAWN_BASELINE or 1)
+#         threshold = max(1, int(0.10 * baseline))  # 10% of baseline, at least 1
+#         if stock_today < threshold:
+#             disabled.add(zone_id)
+
+#     # if zone is disabled, never spawn again
+#     if zone_id is not None and zone_id in disabled:
+#         return None
+
+#     # standard inverse-interval response based on recent consumption
+#     interval = I_max / (1.0 + k * max(0.0, f_avg))
+#     return max(I_min, int(interval))
+
+
+def resource_spawn_interval_inverse(
+    f_avg: float,
+    I_max: int = 200,
+    k: float = 0.5,
+    I_min: int = 10,
+    *,
+    zone_id: Optional[int] = None,        # which zone (0/1/2)
+    stock_today: Optional[int] = None,    # stock at end-of-day for that zone
+    spawn_baseline: Optional[int] = None, # threshold baseline (defaults to FOOD_SPAWN_COUNT)
+    reset: bool = False,                  # call once at sim start
+    cooldown_days: int = 10               # how long a disabled zone stays off
+) -> Optional[int]:
+    """
+    Inverse spawn interval with a finite disable cooldown.
+
+    Usage:
+      • Per tick:  interval = resource_spawn_interval_inverse(f_avg, zone_id=z)
+                    -> returns int interval for active zones, None if in cooldown.
+
+      • End of day: resource_spawn_interval_inverse(0.0, zone_id=z, stock_today=present[z],
+                                                    spawn_baseline=...)
+                    -> if stock_today < 10% of baseline, start/renew a cooldown.
+                       While cooling down, the zone is disabled for 'cooldown_days' days.
+                       After it reaches 0, the zone becomes active again.
+
+      • Start of run: resource_spawn_interval_inverse(0.0, reset=True)
+    """
+    # one-time state
+    if not hasattr(resource_spawn_interval_inverse, "_cooldown"):
+        resource_spawn_interval_inverse._cooldown = {}  # type: ignore[attr-defined]
+    cooldown = resource_spawn_interval_inverse._cooldown  # type: ignore[attr-defined]
+
+    # reset state between runs
+    if reset:
+        cooldown.clear()
+        return I_min
+
+    # daily update: adjust cooldown based on today's stock
+    if zone_id is not None and stock_today is not None:
+        remaining = cooldown.get(zone_id, 0)
+
+        if remaining > 0:
+            # tick down the existing cooldown by one day
+            cooldown[zone_id] = max(0, remaining - 1)
+        else:
+            # no cooldown active → check threshold
+            baseline = spawn_baseline if spawn_baseline is not None else (_SPAWN_BASELINE or 1)
+            threshold = max(1, int(0.10 * baseline))  # 10% of baseline, at least 1
+            if stock_today < threshold:
+                cooldown[zone_id] = max(1, cooldown_days)  # start cooldown
+
+    # per-tick query: if cooling down, zone is disabled (no spawns)
+    if zone_id is not None and cooldown.get(zone_id, 0) > 0:
+        return None
+
+    # standard inverse-interval response based on recent consumption
+    interval = I_max / (1.0 + k * max(0.0, f_avg))
     return max(I_min, int(interval))
 
 
