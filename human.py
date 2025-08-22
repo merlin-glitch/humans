@@ -214,7 +214,7 @@ class Human:
         trust_system,
         is_day: bool,
         action_cost: float = 0.01,
-        food_gain: float = 1.0,
+        food_gain: float = 2.0,
         decay_rate: float = 0.005,
     ) -> Tuple[Optional[Tuple[int,int]], bool]:
         """
@@ -242,8 +242,10 @@ class Human:
             # head home
             if (self.x, self.y) != (self.home_x, self.home_y):
                 self.move_towards(self.home_x, self.home_y, action_cost)
-            return None, False
-
+                if self.bag > 0:
+                    self.deposit_food()
+                return None, False
+            
         # ── DAY BEHAVIOR ───────────────────────────────────
         # # 0) If leader told us where to go, obey
 
@@ -268,7 +270,7 @@ class Human:
         #     return None, False
 
         # 3) If starving fetch from home
-        if self.energy <= 2 and self.bag == 0:
+        if self.energy <= 3 and self.bag == 0:
             if (self.x, self.y) != (self.home_x, self.home_y):
                 self.move_towards(self.home_x, self.home_y, action_cost)
                 return None, False
@@ -278,10 +280,10 @@ class Human:
             return None, False
 
         # 4) If out of energy entirely
-        if self.energy <= 0.0:
+        if self.energy <= 1.0:
             if self.bag > 0:
                 self.bag -= 1
-                self.energy = self.max_energy * 0.1
+                self.energy += food_gain
             else:
                 self.alive = False
             return None, False

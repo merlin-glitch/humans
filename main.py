@@ -292,7 +292,9 @@ def start_simulation(params):
                 )
             # Draw humans and UI overlays
             alive = [h for h in humans if h.alive]
-            pixel_update(screen, map_manage(codes, food_birth, tick), alive, font)
+            static_layer = map_manage(codes)   # new signature: only codes
+            pixel_update(screen, static_layer, alive, font)
+
             display_human_counts(screen, humans, font)
             draw_legend(screen, CELL_SIZE, font)
             display_house_storage(screen, houses, CELL_SIZE, font)

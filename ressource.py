@@ -165,7 +165,7 @@ def resource_spawn_interval_inverse(
     stock_today: Optional[int] = None,    # stock at end-of-day for that zone
     spawn_baseline: Optional[int] = None, # threshold baseline (defaults to FOOD_SPAWN_COUNT)
     reset: bool = False,                  # call once at sim start
-    cooldown_days: int = 10               # how long a disabled zone stays off
+    cooldown_days: int = 5               # how long a disabled zone stays off
 ) -> Optional[int]:
     """
     Inverse spawn interval with a finite disable cooldown.
