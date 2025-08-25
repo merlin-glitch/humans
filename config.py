@@ -75,5 +75,5 @@ FOOD_STACK        = 30
 #energy cost to mate
 ENERGY_COST       = 5.0
 # DAY length and mating cooldown
-DAY_LENGTH        = 350
+DAY_LENGTH        = 200
 MATING_COOLDOWN   = 1 * DAY_LENGTH  # 30 days
