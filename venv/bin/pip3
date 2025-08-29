@@ -1,4 +1,4 @@
-#!/home/oussama/ants/venv/bin/python3
+#!/home/oussama/ants/humans/humans/venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -186,3 +186,46 @@ def resource_spawn_interval_inverse(
 
 # cv2.imwrite("mask.png", mask_debug)
 # print("Mask saved as mask.png")
+
+# import csv
+
+# import csv
+
+# if all_coords is not None and len(all_coords) > 0:
+#     with open("resources_coords.csv", mode="w", newline="") as f:
+#         writer = csv.writer(f)
+#         writer.writerow(["x", "y", "zone_id", "lifetime", "food_left"])  # en-tête
+
+#         for (x, y) in all_coords:
+#             zid = zone_map[x, y]   # ⚠️ attention à l’ordre (x,y) vs (row,col)
+#             writer.writerow([x, y, zid, resources[x, y, 0], resources[x, y, 1]])
+
+#     print("Coordonnées des ressources sauvegardées dans resources_coords.csv")
+
+# import cv2
+# import numpy as np
+
+# def visualize_food_ids(zone_map, food_ids, out_path="food_zones_ids.png"):
+#     # copie en couleur pour afficher le texte
+#     vis = np.zeros((zone_map.shape[0], zone_map.shape[1], 3), dtype=np.uint8)
+#     vis[:] = (200, 200, 200)  # fond gris clair
+
+#     for name, zid in food_ids.items():
+#         # coordonnées de la zone
+#         ys, xs = np.where(zone_map == zid)
+#         if len(xs) == 0:
+#             continue
+
+#         # centroïde (position moyenne pour écrire le texte)
+#         cx, cy = int(xs.mean()), int(ys.mean())
+
+#         # écrire l'ID de zone
+#         cv2.putText(
+#             vis, str(zid), (cx, cy),
+#             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA
+#         )
+
+#     cv2.imwrite(out_path, vis)
+#     print(f"Image des IDs sauvegardée sous {out_path}")
+# zone_map, food_ids = identify_zones(img_path)
+# visualize_food_ids(zone_map, food_ids)
