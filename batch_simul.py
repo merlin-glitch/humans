@@ -145,8 +145,8 @@ from tqdm import trange
 from simulation import run_simulation  # use directly
 
 # ── Config ───────────────────────────────────────────────────────────────
-N_RUNS = 5
-DAYS   = 100
+N_RUNS = 1
+DAYS   = 250
 
 SEED_BASE = 42   # per-run seed = SEED_BASE + run_idx
 SEEDS     = None
@@ -203,7 +203,10 @@ def zeros_zones(n): return [[0]*n for _ in range(N_ZONES)]
 def zeros_zones_houses(n): return [[zeros(n), zeros(n)] for _ in range(N_ZONES)]
 
 # ── Main loop ───────────────────────────────────────────────────────────
-for run_idx in trange(N_RUNS, desc="Simulations", unit="run"):
+from tqdm import tqdm
+
+pbar = tqdm(range(N_RUNS), desc="Simulations", unit="run")
+for run_idx in pbar:
     seed_val = get_seed_for_run(run_idx)
     random.seed(seed_val)
     np.random.seed(seed_val)
@@ -211,12 +214,25 @@ for run_idx in trange(N_RUNS, desc="Simulations", unit="run"):
     result = run_simulation(
         num_days=DAYS,
         return_zone_series=True,
-        progress=False,
+        progress=False,   # inner sim stays silent
         seed=seed_val,
     )
 
     # Unpack basic
     days, blue, red, within, between = result[:5]
+
+    # Update tqdm bar footer
+    pbar.set_postfix({
+        "seed": seed_val,
+        "final_blue": blue[-1],
+        "final_red": red[-1]
+    })
+
+    # Write one log line above the bar
+    pbar.write(
+        f"Run {run_idx+1}/{N_RUNS} finished "
+        f"(Seed={seed_val}, Blue={blue[-1]}, Red={red[-1]}, LastDay={days[-1]})"
+    )
 
     # Defaults
     n = len(days)

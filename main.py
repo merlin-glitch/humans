@@ -91,7 +91,7 @@ def start_simulation(params):
     Note:
         The function runs until the user closes the pygame window.
     """
-    terrain_txt = map_draw('3_spots.png')
+    terrain_txt = map_draw('5_spots.png')
     codes       = np.loadtxt(terrain_txt, dtype=int)
     H, W        = codes.shape
     rev_color   = {code: rgb for rgb, code in map_draw.__globals__['NEW_PALETTE'].items()}

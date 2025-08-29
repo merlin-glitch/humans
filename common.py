@@ -404,6 +404,7 @@ def run_competition(
     estime le plus (trust_score ≥ threshold). Si cette personne
     a une memory_spot valide, il la suit demain.
     """
+ 
     for member in family:
         # 1) On récupère la paire (autre, son score) pour tous les co‐résidents
         scores = [

@@ -204,72 +204,51 @@ class Human:
                     dx, dy = other.x - self.x, other.y - self.y
                     if dx*dx + dy*dy <= R2 and self.memory_spot:
                         other.memory_spot = self.memory_spot
-    
 
+                        
     def step(
-        self,
-        resources,
-        houses,
-        humans,
-        trust_system,
-        is_day: bool,
-        action_cost: float = 0.01,
-        food_gain: float = 2.0,
-        decay_rate: float = 0.005,
-    ) -> Tuple[Optional[Tuple[int,int]], bool]:
+            self,
+            resources,
+            houses,
+            humans,
+            trust_system,
+            is_day: bool,
+            action_cost: float = 0.01,
+            food_gain: float = 2.0,
+            decay_rate: float = 0.005,
+        ) -> Tuple[Optional[Tuple[int,int]], bool]:
         """
         One tick of behavior: movement, foraging, depositing, sharing.
         Returns (picked_coord, shared_bool).
         """
-        
-
-            # ── obéir au leader en tout début de journée ────────────────────────────
+        # ── obéir au leader en tout début de journée ────────────────────────────
         if is_day and getattr(self, "next_day_target", None):
             tx, ty = self.next_day_target
-            # si on n’est pas encore arrivé, on y va
             if (self.x, self.y) != (tx, ty):
-                self.move_towards(tx, ty, action_cost)   # <<< TX, TY ici, pas home_x/home_y !
+                self.move_towards(tx, ty, action_cost)
                 return None, False
-            # une fois arrivé, on supprime la cible pour reprendre le foraging
             del self.next_day_target
             return None, False
-        
-        
-
 
         # ── NIGHT BEHAVIOR ───────────────────────────────
         if not is_day:
-            # head home
             if (self.x, self.y) != (self.home_x, self.home_y):
                 self.move_towards(self.home_x, self.home_y, action_cost)
                 if self.bag > 0:
                     self.deposit_food()
                 return None, False
-            
+
         # ── DAY BEHAVIOR ───────────────────────────────────
-        # # 0) If leader told us where to go, obey
-
-
-        # 1) Sleep & energy decay
         in_house = any(
             h.x <= self.x < h.x + HOUSE_SIZE and
             h.y <= self.y < h.y + HOUSE_SIZE
             for h in houses
         )
-        # self.sleep(in_house)
-        # if not self.alive:
-        #     return None, False
+
         self.decay_energy(decay_rate)
         if not self.alive:
             return None, False
 
-        # # 2) If tired go home
-        # if self.sleep_count < 75:
-        #     if (self.x, self.y) != (self.home_x, self.home_y):
-        #         self.move_towards(self.home_x, self.home_y, action_cost)
-        #     return None, False
-
-        # 3) If starving fetch from home
         if self.energy <= 3 and self.bag == 0:
             if (self.x, self.y) != (self.home_x, self.home_y):
                 self.move_towards(self.home_x, self.home_y, action_cost)
@@ -279,7 +258,6 @@ class Human:
                 self.home.storage -= 1
             return None, False
 
-        # 4) If out of energy entirely
         if self.energy <= 1.0:
             if self.bag > 0:
                 self.bag -= 1
@@ -288,33 +266,28 @@ class Human:
                 self.alive = False
             return None, False
 
-        # 5) If bag full, deposit
         if self.bag >= self.bag_capacity:
             if not in_house:
                 self.move_towards(self.home_x, self.home_y, action_cost)
                 return None, False
             self.deposit_food()
-            
             return None, False
-        
-        #self.share_memory_spot(humans)
-         
+
         # 6) Move toward known food or explore
         if self.memory_spot and self.bag < self.bag_capacity:
             mx, my = self.memory_spot
             if (self.x, self.y) != (mx, my):
                 self.move_towards(mx, my, action_cost)
                 return None, False
-            if not any((r.x, r.y) == (mx, my) for r in resources):
+            if resources[my, mx, 1] <= 0:   # ressource épuisée
                 self.memory_spot = None
 
-        # prune stale
+        # prune stale memory
         self.known_food = [
             spot for spot in self.known_food
-            if any((r.x, r.y) == spot for r in resources)
+            if resources[spot[1], spot[0], 1] > 0
         ]
 
-        # explore
         if self.known_food:
             tx, ty = min(
                 self.known_food,
@@ -330,24 +303,21 @@ class Human:
         # 7) Pick up / eat resource
         picked = None
         if not in_house and self.bag < self.bag_capacity:
-            for resource in list(resources):
-                dx, dy = resource.x - self.x, resource.y - self.y
-                if dx*dx + dy*dy <= 1**2:
-                    if self.energy >= 9:
-                        self.store_in_bag(spot=(resource.x, resource.y))
-                    else:
-                        self.eat(food_gain, spot=(resource.x, resource.y))
-                    resources.remove(resource)
-                    picked = (resource.x, resource.y)
-                    break
+            # vérifier uniquement autour (x,y) ± 1
+            for nx in range(self.x-1, self.x+2):
+                for ny in range(self.y-1, self.y+2):
+                    if 0 <= nx < resources.shape[1] and 0 <= ny < resources.shape[0]:
+                        if resources[ny, nx, 1] > 0:  # nourriture dispo
+                            if self.energy >= 9:
+                                self.store_in_bag(spot=(nx, ny))
+                            else:
+                                self.eat(food_gain, spot=(nx, ny))
+                            resources[ny, nx] = [0, 0]  # remove_resource
+                            picked = (nx, ny)
+                            break
+                if picked: break
 
-
-
-
-        # # Call the function in step()
-        # self.share_memory_spot(humans) 
-
-         # 9) Trust‑based share
+        # 9) Trust-based share
         shared = False
         for other in humans:
             if other is self:
@@ -355,8 +325,7 @@ class Human:
             if max(abs(self.x-other.x), abs(self.y-other.y)) > 1:
                 continue
             t = trust_system.trust_score(self.id, other.id)
-            if t > 0.5 and self.bag > 0 :
-                # real share
+            if t > 0.5 and self.bag > 0:
                 self.bag    -= 1
                 other.bag   += 1
                 other.memory_spot = self.memory_spot
@@ -367,9 +336,8 @@ class Human:
                 )
                 shared = True
                 break
-            elif t < 0.5 :
-                # sabotage
-                bogus = random.choice(self.known_food or ( 0,0))
+            elif t < 0.5:
+                bogus = random.choice(self.known_food or [(0,0)])
                 other.memory_spot = bogus
                 trust_system.increase_trust(
                     trustor_id=other.id,
@@ -380,6 +348,181 @@ class Human:
                 break
 
         return picked, shared
+    
+
+    # def step(
+    #     self,
+    #     resources,
+    #     houses,
+    #     humans,
+    #     trust_system,
+    #     is_day: bool,
+    #     action_cost: float = 0.01,
+    #     food_gain: float = 2.0,
+    #     decay_rate: float = 0.005,
+    # ) -> Tuple[Optional[Tuple[int,int]], bool]:
+    #     """
+    #     One tick of behavior: movement, foraging, depositing, sharing.
+    #     Returns (picked_coord, shared_bool).
+    #     """
+        
+
+    #         # ── obéir au leader en tout début de journée ────────────────────────────
+    #     if is_day and getattr(self, "next_day_target", None):
+    #         tx, ty = self.next_day_target
+    #         # si on n’est pas encore arrivé, on y va
+    #         if (self.x, self.y) != (tx, ty):
+    #             self.move_towards(tx, ty, action_cost)   # <<< TX, TY ici, pas home_x/home_y !
+    #             return None, False
+    #         # une fois arrivé, on supprime la cible pour reprendre le foraging
+    #         del self.next_day_target
+    #         return None, False
+        
+        
+
+
+    #     # ── NIGHT BEHAVIOR ───────────────────────────────
+    #     if not is_day:
+    #         # head home
+    #         if (self.x, self.y) != (self.home_x, self.home_y):
+    #             self.move_towards(self.home_x, self.home_y, action_cost)
+    #             if self.bag > 0:
+    #                 self.deposit_food()
+    #             return None, False
+            
+    #     # ── DAY BEHAVIOR ───────────────────────────────────
+    #     # # 0) If leader told us where to go, obey
+
+
+    #     # 1) Sleep & energy decay
+    #     in_house = any(
+    #         h.x <= self.x < h.x + HOUSE_SIZE and
+    #         h.y <= self.y < h.y + HOUSE_SIZE
+    #         for h in houses
+    #     )
+    #     # self.sleep(in_house)
+    #     # if not self.alive:
+    #     #     return None, False
+    #     self.decay_energy(decay_rate)
+    #     if not self.alive:
+    #         return None, False
+
+    #     # # 2) If tired go home
+    #     # if self.sleep_count < 75:
+    #     #     if (self.x, self.y) != (self.home_x, self.home_y):
+    #     #         self.move_towards(self.home_x, self.home_y, action_cost)
+    #     #     return None, False
+
+    #     # 3) If starving fetch from home
+    #     if self.energy <= 3 and self.bag == 0:
+    #         if (self.x, self.y) != (self.home_x, self.home_y):
+    #             self.move_towards(self.home_x, self.home_y, action_cost)
+    #             return None, False
+    #         if self.home.storage > 0 and self.energy < self.max_energy:
+    #             self.eat(food_gain * 10)
+    #             self.home.storage -= 1
+    #         return None, False
+
+    #     # 4) If out of energy entirely
+    #     if self.energy <= 1.0:
+    #         if self.bag > 0:
+    #             self.bag -= 1
+    #             self.energy += food_gain
+    #         else:
+    #             self.alive = False
+    #         return None, False
+
+    #     # 5) If bag full, deposit
+    #     if self.bag >= self.bag_capacity:
+    #         if not in_house:
+    #             self.move_towards(self.home_x, self.home_y, action_cost)
+    #             return None, False
+    #         self.deposit_food()
+            
+    #         return None, False
+        
+         
+    #     # 6) Move toward known food or explore
+    #     if self.memory_spot and self.bag < self.bag_capacity:
+    #         mx, my = self.memory_spot
+    #         if (self.x, self.y) != (mx, my):
+    #             self.move_towards(mx, my, action_cost)
+    #             return None, False
+    #         if not any((r.x, r.y) == (mx, my) for r in resources):
+    #             self.memory_spot = None
+
+    #     # prune stale
+    #     self.known_food = [
+    #         spot for spot in self.known_food
+    #         if any((r.x, r.y) == spot for r in resources)
+    #     ]
+
+    #     # explore
+    #     if self.known_food:
+    #         tx, ty = min(
+    #             self.known_food,
+    #             key=lambda pos: (pos[0]-self.x)**2 + (pos[1]-self.y)**2
+    #         )
+    #         self.move_towards(tx, ty, action_cost)
+    #     else:
+    #         for _ in range(self.exploration_factor):
+    #             if self.energy <= 0 or self.bag >= self.bag_capacity:
+    #                 break
+    #             self.random_move(action_cost)
+
+    #     # 7) Pick up / eat resource
+    #     picked = None
+    #     if not in_house and self.bag < self.bag_capacity:
+    #         for resource in list(resources):
+    #             dx, dy = resource.x - self.x, resource.y - self.y
+    #             if dx*dx + dy*dy <= 1**2:
+    #                 if self.energy >= 9:
+    #                     self.store_in_bag(spot=(resource.x, resource.y))
+    #                 else:
+    #                     self.eat(food_gain, spot=(resource.x, resource.y))
+    #                 resources.remove(resource)
+    #                 picked = (resource.x, resource.y)
+    #                 break
+
+
+
+
+    #     # # Call the function in step()
+    #     # self.share_memory_spot(humans) 
+
+    #      # 9) Trust‑based share
+    #     shared = False
+    #     for other in humans:
+    #         if other is self:
+    #             continue
+    #         if max(abs(self.x-other.x), abs(self.y-other.y)) > 1:
+    #             continue
+    #         t = trust_system.trust_score(self.id, other.id)
+    #         if t > 0.5 and self.bag > 0 :
+    #             # real share
+    #             self.bag    -= 1
+    #             other.bag   += 1
+    #             other.memory_spot = self.memory_spot
+    #             trust_system.increase_trust(
+    #                 trustor_id=other.id,
+    #                 trustee_id=self.id,
+    #                 increment=t+0.01
+    #             )
+    #             shared = True
+    #             break
+    #         elif t < 0.5 :
+    #             # sabotage
+    #             bogus = random.choice(self.known_food or ( 0,0))
+    #             other.memory_spot = bogus
+    #             trust_system.increase_trust(
+    #                 trustor_id=other.id,
+    #                 trustee_id=self.id,
+    #                 increment=t-0.01
+    #             )
+    #             shared = True
+    #             break
+
+    #     return picked, shared
 
 
 def draw_human(screen, human: Human, cell_size: int, font: pygame.font.Font):

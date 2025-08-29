@@ -45,7 +45,7 @@ NEW_PALETTE = {
     (  0,   0,   0): -1,   # black → obstacle
     ( 255, 0,   0):  2,   # red → safe space 1
     (0,   0,   128):  3,   # darkblue   → safe space 2
-    (94,  200,   30):  4,   # green → food zone 1
+    (54,  109,   70):  4,   # green → food zone 1
     (255,   0,   255):  5,   # pink   → food zone 2
     (94,  185,   30):  6,   # green   → grass
 
