@@ -5,6 +5,7 @@ import pygame
 from typing import Tuple, List
 from config import *
 from caracteristics import *
+from ressource import remove_resource
 
 class House:
     def __init__(self, x: int, y: int, color: Tuple[int, int, int]):
@@ -32,7 +33,7 @@ class Human:
         initial_energy: float = 10.0,
         exploration_factor: int = 2,
         bag_capacity: int = 10,
-        initial_sleep: float = 200.0
+
     ):
         self.id                 = human_id
         self.sex                = sex
@@ -54,8 +55,7 @@ class Human:
         self.known_food        = []      # list of (x,y) spots
         self.last_collected    = None
         self.memory_spot       = None    # last food pixel remembered
-        self.max_sleep_count   = initial_sleep
-        self.sleep_count       = initial_sleep
+
         self.alive             = True
         self.codes             = codes   # static map array to block movement
         self.obstacles         = set()   # remembered blocked tiles
@@ -302,20 +302,23 @@ class Human:
 
         # 7) Pick up / eat resource
         picked = None
-        if not in_house and self.bag < self.bag_capacity:
-            # vérifier uniquement autour (x,y) ± 1
-            for nx in range(self.x-1, self.x+2):
-                for ny in range(self.y-1, self.y+2):
-                    if 0 <= nx < resources.shape[1] and 0 <= ny < resources.shape[0]:
-                        if resources[ny, nx, 1] > 0:  # nourriture dispo
-                            if self.energy >= 9:
-                                self.store_in_bag(spot=(nx, ny))
-                            else:
-                                self.eat(food_gain, spot=(nx, ny))
-                            resources[ny, nx] = [0, 0]  # remove_resource
-                            picked = (nx, ny)
-                            break
-                if picked: break
+        qty = int(resources[self.y, self.x, 1])
+        if qty > 0 and self.bag < self.bag_capacity:
+            if self.energy >= 9:
+                self.store_in_bag(spot=(self.x, self.y))
+            else:
+                self.eat(food_gain, spot=(self.x, self.y))
+
+            # decrement the shared numpy array
+            resources[self.y, self.x, 1] = max(0, qty - 1)
+            if resources[self.y, self.x, 1] <= 0:
+                # Optional: clear lifetime too, so respawn logic sees an empty cell
+                resources[self.y, self.x, 0] = 0
+                # (No need to call remove_resource if you prefer, but it's okay to do:)
+                # from new_ressource import remove_resource
+                # remove_resource(self.x, self.y)
+
+            picked = (self.x, self.y)
 
         # 9) Trust-based share
         shared = False

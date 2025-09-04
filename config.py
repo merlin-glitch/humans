@@ -1,6 +1,5 @@
 #----------------------menu.py----------------
 # Taille d'une cellule en pixels
-CELL_SIZE = 6  # Ajustable pour agrandir la fenêtre
 # Nombre de points de nourriture à générer\
 FOOD_COUNT = 30
 
@@ -23,41 +22,37 @@ MAP_WIDTH  = 100
 MAP_HEIGHT = 60
 
 # ── Taille d’une cellule (en pixels) ───────────────────────────────────────
-CELL_SIZE = 16
+CELL_SIZE = 8
 
 # ── Palette terrain : mapping RGB → code entier ─────────────────────────────
-# (correspond à votre legend : 0=beach,1=ocean,-1=obstacle,2=safe1,3=safe2)
-TERRAIN_PALETTE = {
-    (255, 255,   56):  0,   # gold  → plage
-    (  0,   0, 255):  1,   # blue  → océan
-    (  0,   0,   0): -1,   # black → obstacle
-    ( 255, 0,   0):  2,   # green → safe space 1
-    (0,   0,   128):  3,   # darkblue   → safe space 2
-    ( 54, 109,   70):  4,   # purple → food zone 1
-    (255,   0,   255):  5,   # pink   → food zone 2
-    (94,  185,   30):  6,   # green   → grass
+# # (correspond à la legend : 0=beach,1=ocean,-1=obstacle,2=safe1,3=safe2)
+# TERRAIN_PALETTE = {
+#     (255, 255,   56):  0,   # gold  → plage
+#     (  0,   0, 255):  1,   # blue  → océan
+#     (  0,   0,   0): -1,   # black → obstacle
+#     ( 255, 0,   0):  2,   # green → safe space 1
+#     (0,   0,   128):  3,   # darkblue   → safe space 2
+#     ( 54, 109,   70):  4,   # purple → food zone 1
+#     (255,   0,   255):  5,   # pink   → food zone 2
+#     (94,  185,   30):  6,   # green   → grass
 
-}
+# }
+
 
 NEW_PALETTE = {
-    (255, 255,   56):  0,   # gold  → plage
-    (  0,   0, 255):  1,   # blue  → océan
-    (  0,   0,   0): -1,   # black → obstacle
-    ( 255, 0,   0):  3,   # red → safe space 1
-    (0,   0,   128):  2,   # darkblue   → safe space 2
-    (54,  109,   70):  4,   # green → food zone 1
-    (255,   0,   255):  5,   # pink   → food zone 2
-    (94,  185,   30):  6,   # green   → grass
-
+    (0, 0, 0): 0,           # border/walls
+    (0, 200, 0): 1,         # grass background
+    (0, 0, 255): 2,         # blue house
+    (255, 0, 0): 3,         # red house
+    (54, 109, 70): 4,       # food zones (dark green)
 }
-
 
 # ── Paramètres de la nourriture ────────────────────────────────────────────
 
 
-# Couleur de départ (fraîche → dark green) et d’arrivée (disparition → dark red)
-FOOD_START_RGB = (  0, 100,   0)
-FOOD_END_RGB   = (100,   0,   0)
+# # Couleur de départ (fraîche → dark green) et d’arrivée (disparition → dark red)
+# FOOD_START_RGB = (  0, 100,   0)
+# FOOD_END_RGB   = (100,   0,   0)
 
 
 # how many resources to seed at start
