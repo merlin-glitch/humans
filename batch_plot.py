@@ -1805,8 +1805,8 @@ def plot_spawn_vs_cons_by_family_per_run(df: pd.DataFrame, S, outdir: str, suf: 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv",    default="batch_results/all_combined.csv")
-    ap.add_argument("--out",    default="batch_results/plots")
+    ap.add_argument("--csv",    default="batch_results/all_244_combined_1trust.csv")
+    ap.add_argument("--out",    default="batch_results/plots_seed244_1trust")
     ap.add_argument("--smooth", action="store_true", help="Enable rolling-average smoothing")
     ap.add_argument("--window", type=int, default=7, help="Rolling window (days)")
     args = ap.parse_args()

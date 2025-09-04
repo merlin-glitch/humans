@@ -397,7 +397,7 @@ def plot_population_variation(blue_file: str, red_file: str) -> None:
 def run_competition(
     family: List[Human],
     trust_system: TrustSystem,
-    threshold: float = 0.5
+    threshold: float = 0.55
 ) -> None:
     """
     Chaque membre du groupe regarde qui, parmi les autres, il

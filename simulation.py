@@ -473,7 +473,7 @@ def run_simulation(
         if len(pts) == 0:
             continue
         avg_x, avg_y = pts[:, 1].mean(), pts[:, 0].mean()
-        houses.append(House(int(avg_x), int(avg_y), (0, 0, 255) if safe_code == 2 else (255, 0, 0)))
+        houses.append(House(int(avg_x), int(avg_y), (0, 0, 255) if safe_code == 3 else (255, 0, 0)))
 
     # Seed nourriture
     food_cells = list(cell_to_zone.keys())
@@ -542,7 +542,7 @@ def run_simulation(
         if ((tick - 1) % DAY_LENGTH) == 0:
             red_family = [h for h in humans if h.alive and h.home is houses[1]]
             if red_family:
-                run_competition(red_family, trust_system, threshold=0.55)
+                run_competition(red_family, trust_system, threshold=1)
 
         # Tick ressources
         life_span_ressource()

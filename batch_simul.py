@@ -145,16 +145,16 @@ from tqdm import trange
 from simulation import run_simulation  # use directly
 
 # ── Config ───────────────────────────────────────────────────────────────
-N_RUNS = 20
-DAYS   = 100
+N_RUNS = 100
+DAYS   = 200
 
 #SEED_BASE = 42   # per-run seed = SEED_BASE + run_idx
-SEED_BASE = 42
+SEED_BASE = 244
 SEEDS     = None
 
 RESULTS_DIR  = "batch_results"
 os.makedirs(RESULTS_DIR, exist_ok=True)
-COMBINED_CSV = os.path.join(RESULTS_DIR, "all_combined.csv")
+COMBINED_CSV = os.path.join(RESULTS_DIR, "all_244_combined_1trust.csv")
 
 # ── Run once to detect zone count ────────────────────────────────────────
 probe_result = run_simulation(num_days=1, return_zone_series=True, progress=False, seed=0)
