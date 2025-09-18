@@ -15,7 +15,7 @@ MIN_HOUSE_DISTANCE = 30
 # config.py
 
 
-Nbre_HUMANS = 100
+Nbre_HUMANS = 20
 # ── Taille de la carte (en cellules) ────────────────────────────────────────
 
 MAP_WIDTH  = 100
@@ -39,14 +39,20 @@ CELL_SIZE = 8
 # }
 
 
+# NEW_PALETTE = {
+#     (0, 0, 0): 0,           # border/walls
+#     (0, 200, 0): 1,         # grass background
+#     (0, 0, 255): 2,         # blue house
+#     (255, 0, 0): 3,         # red house
+#     (54, 109, 70): 4,       # food zones (dark green)
+# }
 NEW_PALETTE = {
     (0, 0, 0): 0,           # border/walls
-    (0, 200, 0): 1,         # grass background
-    (0, 0, 255): 2,         # blue house
+    (94, 185, 30): 1,         # grass background
+    (0, 0, 128): 2,         # blue house
     (255, 0, 0): 3,         # red house
     (54, 109, 70): 4,       # food zones (dark green)
 }
-
 # ── Paramètres de la nourriture ────────────────────────────────────────────
 
 

@@ -246,6 +246,7 @@
 #         screen.blit(text_surf, rect)
 
 
+
 # resource_utils.py
 import numpy as np
 from config import MAP_HEIGHT, MAP_WIDTH
