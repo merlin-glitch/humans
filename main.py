@@ -297,10 +297,12 @@ def start_simulation(params):
             display_human_counts(screen, humans, font)
             draw_legend(screen, CELL_SIZE, font)
             display_house_storage(screen, houses, CELL_SIZE, font)
+            display_house_population(screen, humans, houses, font)
+
             slider.draw(screen, font)
             speed_slider.draw(screen, font)
             draw_action_buttons(screen, action_rects, font)
-            screen.blit(font.render(f"Shares: {total_shares}", True, (255, 255, 0)), (10, 10))
+            #screen.blit(font.render(f"Shares: {total_shares}", True, (255, 255, 0)), (10, 10))
             # Day/night overlay
             overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
             overlay.fill((0, 0, 0))
@@ -317,11 +319,11 @@ def start_simulation(params):
         clock.tick(int(30 * speed_slider.value))
 
     pygame.quit()
-    export_trust_matrix(trust_system, humans, "trust_matrix.csv")
-    plot_avg_trust_per_house(humans, trust_system)
-    plot_within_vs_between_trust(humans, trust_system)
-    plot_sharing_counts(humans, trust_system)
-    plot_population_variation(red_file,blue_file)
+    # export_trust_matrix(trust_system, humans, "trust_matrix.csv")
+    # plot_avg_trust_per_house(humans, trust_system)
+    # plot_within_vs_between_trust(humans, trust_system)
+    # plot_sharing_counts(humans, trust_system)
+    # plot_population_variation(red_file,blue_file)
 
 def show_menu():
     pygame.init()
@@ -352,6 +354,30 @@ params = {
     'house_size':    1,
     'min_house_distance': 0
 }
+
+def display_house_population(screen, humans: List[Human], houses: List[House], font: pygame.font.Font):
+    """
+    Displays the count of alive humans by house color (e.g., red vs blue).
+
+    Args:
+        screen (pygame.Surface): The surface on which to render the text.
+        humans (List[Human]): List of Human objects.
+        houses (List[House]): List of House objects.
+        font (pygame.font.Font): Font for rendering text.
+    """
+    # Count alive humans for each house
+    counts = {}
+    for house in houses:
+        counts[house.color] = sum(h.alive for h in humans if h.home is house)
+
+    # Draw text on screen, one line per house
+    x, y = 10, 40  # position (slightly below "Shares")
+    for color, alive_count in counts.items():
+        label = "Blue" if color == (0, 0, 128) else "Red" if color == (255, 0, 0) else str(color)
+        text = f"{label}: {alive_count} alive"
+        surf = font.render(text, True, color)
+        screen.blit(surf, (x, y))
+        y += surf.get_height() + 2
 
 if __name__ == "__main__":
     show_menu()

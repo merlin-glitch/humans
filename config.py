@@ -1,6 +1,5 @@
 #----------------------menu.py----------------
 # Taille d'une cellule en pixels
-CELL_SIZE = 6  # Ajustable pour agrandir la fenêtre
 # Nombre de points de nourriture à générer\
 FOOD_COUNT = 30
 
@@ -16,7 +15,7 @@ MIN_HOUSE_DISTANCE = 30
 # config.py
 
 
-Nbre_HUMANS = 10
+Nbre_HUMANS = 20
 # ── Taille de la carte (en cellules) ────────────────────────────────────────
 # Remplacez par les dimensions réelles de votre .map
 MAP_WIDTH  = 100
