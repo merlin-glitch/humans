@@ -261,34 +261,8 @@ The simulation exports data in CSV format compatible with:
 - Use `headless_simulation.py` for batch simulations
 - Use `ui_simulation.py` for interactive exploration
 - Reduce visualization frequency for large populations
-- Enable numpy optimizations in config
 - Consider smaller map sizes for faster iteration
 
-## Contributing
 
-This project welcomes contributions in:
-- Additional visualization types
-- New agent behaviors and social mechanics
-- Performance optimizations
-- Documentation improvements
-- Research applications and case studies
-
-## License
-
-[Add your license information here]
-
-## Citation
-
-If you use this simulation in research, please cite:
-
-```
-[Add citation format here]
-```
-
-## Contact
-
-[Add contact information here]
-
----
 
 *This simulation represents a complex multi-agent system modeling human social behavior. The emergent patterns observed reflect both the programmed mechanics and the stochastic nature of agent interactions, providing insights into how individual behaviors can lead to collective social structures.*
