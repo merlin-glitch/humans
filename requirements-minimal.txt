@@ -1,0 +1,18 @@
+# Minimal requirements for Human Society Simulation
+# Core dependencies only - install with: pip install -r requirements-minimal.txt
+
+# Essential for simulation core
+numpy>=2.2.0
+pandas>=2.3.0
+
+# Essential for UI and visualization
+pygame>=2.6.0
+pygame-menu>=4.5.0
+matplotlib>=3.10.0
+
+# Essential for map processing
+opencv-python>=4.12.0
+pillow>=11.3.0
+
+# Essential for batch processing
+tqdm>=4.67.0

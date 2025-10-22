@@ -1,0 +1,27 @@
+# Human Society Simulation - Required Dependencies
+# Agent-based simulation of human societies with resource competition and trust dynamics
+
+# Core simulation dependencies
+numpy>=2.2.0
+pandas>=2.3.0
+scipy>=1.16.0
+
+# Visualization and UI
+pygame>=2.6.0
+pygame-menu>=4.5.0
+matplotlib>=3.10.0
+seaborn>=0.13.0
+
+# Image processing and zone detection
+opencv-python>=4.12.0
+pillow>=11.3.0
+
+# Data analysis and plotting
+networkx>=3.5.0
+tqdm>=4.67.0
+
+# Supporting libraries
+python-dateutil>=2.9.0
+pytz>=2025.2
+typing-extensions>=4.14.0
+

@@ -1,0 +1,11 @@
+{
+  "map": "/home/oussama/ants/humans/humans/images/desert_oasis_map_1000x1000_5oasis.png",
+  "mapping": {
+    "burlywood": "terrain",
+    "tan": "terrain",
+    "wheat": "terrain",
+    "gray": "terrain",
+    "dodgerblue": "water",
+    "forestgreen": "food"
+  }
+}

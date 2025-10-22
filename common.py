@@ -1,43 +1,70 @@
-# common.py 
+"""
+common.py - Shared utilities for simulation logic
 
+Part of the Human Society Simulation project.
+
+Contains trust boosting, mating mechanics, competition resolution,
+CSV export functions, and plotting helpers.
+"""
+
+# Standard library imports
 import csv
-from typing import List , Tuple,  Dict
-from human import *
-from caracteristics import *
-import random
-import matplotlib.pyplot as plt
-from collections import defaultdict, Counter
 import os
+import random
+from collections import defaultdict, Counter
+from typing import List, Tuple, Dict
+
+# Third-party imports
+import matplotlib.pyplot as plt
+import pygame
+
+# Local imports
+from human import Human, House
+from trust_system import TrustSystem
 
 
 def boost_house_trust(
     trust_system: TrustSystem,
     contributor: Human,
     humans: List[Human],
-    increment: float = 0.001
+    increment: float = 0.001,
 ) -> None:
     """
-    Whenever `contributor` deposits food, bump by `increment`
-    the trust score of every other human sharing that same house.
+    Increase trust in a contributor among their housemates.
     
-    Now uses float‐based increase_trust under the hood (no rounding).
+    When an agent deposits food into their house storage, this function
+    increases the trust that all other housemates have for the contributor.
+    This simulates gratitude and recognition for contributions to the group.
+    
+    Args:
+        trust_system: The trust system managing relationships
+        contributor: The human who made a contribution (deposited food)
+        humans: List of all humans in the simulation
+        increment: Amount to increase trust by (default 0.001)
+        
+    Example:
+        >>> # When human deposits food to house storage
+        >>> boost_house_trust(trust_system, contributor, all_humans, 0.1)
+        >>> # All housemates now trust the contributor more
     """
-    # ensure the contributor is known
     trust_system.init_human(contributor.id)
 
-    for receiver in humans:
-        if receiver is contributor:
-            continue
-        # only boost those in the same house
-        if receiver.home is contributor.home:
-            # this will internally do:
-            #   succ_float += increment * total
-            #   clamp, recompute ratio, etc.
-            trust_system.increase_trust(
-                trustor_id=receiver.id,
-                trustee_id=contributor.id,
-                increment=increment
-            )
+    home = contributor.home
+    ids = [r.id for r in humans if r is not contributor and r.home is home]
+    if not ids:
+        return
+
+    for rid in ids:
+        trust_system.increase_trust(
+            trustor_id=rid,
+            trustee_id=contributor.id,
+            increment=increment,
+            refresh=False,  # defer recompute
+        )
+
+
+
+
 
 
 def export_trust_matrix(
@@ -46,8 +73,20 @@ def export_trust_matrix(
     filename: str = "trust_matrix.csv"
 ) -> None:
     """
-    Write a CSV with human IDs as headers and
-    cells containing continuous trust scores in [-1,1].
+    Export the complete trust matrix to a CSV file.
+
+    Creates a CSV file where each row represents a trustor (agent whose trust
+    we're measuring) and each column represents a trustee (agent being trusted).
+    The values are continuous trust scores ranging from 0.0 to 1.0.
+
+    Args:
+        trust_system: The trust system containing all relationship data
+        human_list: List of human agents to include in the matrix
+        filename: Output CSV filename (default: "trust_matrix.csv")
+
+    Example:
+        >>> export_trust_matrix(trust_system, humans, "my_trust_matrix.csv")
+        >>> # Creates a CSV with human IDs as headers and trust scores as values
     """
     ids = sorted(h.id for h in human_list)
     with open(filename, 'w', newline='') as f:
@@ -60,6 +99,37 @@ def export_trust_matrix(
             writer.writerow(row)
 
 
+def _avg_pairwise_trust(ids: List[int], trust_system: TrustSystem) -> float:
+    """
+    Calculate the average pairwise trust score for a group of agents.
+
+    Computes the mean trust score across all ordered pairs (i, j) where i != j
+    within the given list of agent IDs. This metric represents the overall
+    level of trust within a group.
+
+    Args:
+        ids: List of human agent IDs to analyze
+        trust_system: Trust system containing relationship data
+
+    Returns:
+        Average trust score (0.0 to 1.0), or 0.0 if fewer than 2 agents
+
+    Example:
+        >>> blue_ids = [1, 2, 3, 4]
+        >>> avg_trust = _avg_pairwise_trust(blue_ids, trust_system)
+        >>> print(f"Average trust within blue family: {avg_trust:.3f}")
+    """
+    if len(ids) < 2:
+        return 0.0
+    s = 0.0
+    n = 0
+    for i in ids:
+        for j in ids:
+            if i == j:
+                continue
+            s += trust_system.trust_score(i, j)
+            n += 1
+    return s / n if n else 0.0
 
 
 def average_trust_per_house(
@@ -250,12 +320,29 @@ def to_mate(
     energy_cost: float = 5.0
 ) -> Tuple[int, int]:
     """
-    If h1 and h2 share the same house, are adjacent, have mutual trust ≥ threshold,
-    and each has ≥ energy_cost energy, they spend that energy to produce 1–2 children.
-    Appends the new Humans to `humans` and registers them in `trust_system`.
-
+    Attempt mating between two humans if conditions are met.
+    
+    Checks if two humans can mate based on mutual trust, energy requirements,
+    and cohabitation. If successful, creates 1-2 offspring and adds them to
+    the population. Both parents pay energy cost regardless of number of children.
+    
+    Args:
+        h1: First potential parent
+        h2: Second potential parent  
+        trust_system: Trust system for checking mutual trust
+        humans: List of all humans (children will be added here)
+        codes: Terrain map array for child placement
+        next_id: Next available human ID for children
+        threshold: Minimum mutual trust required (default 0.7)
+        energy_cost: Energy cost for each parent (default 5.0)
+        
     Returns:
-      (num_children_created, new_next_id)
+        Tuple of (num_children_created, updated_next_id)
+        
+    Example:
+        >>> children, next_id = to_mate(human1, human2, trust, all_humans, 
+        ...                           zone_map, next_id, threshold=0.8)
+        >>> print(f"Created {children} children, next ID is {next_id}")
     """
 
     # 1) must be co‑residents
@@ -266,10 +353,10 @@ def to_mate(
     # if max(abs(h1.x-h2.x), abs(h1.y-h2.y)) > 1:
     #     return 0, next_id
 
-    # 2) mutual trust check
+    # 2) mutual trust check - both must trust each other above threshold
     t12 = trust_system.trust_score(h1.id, h2.id)
     t21 = trust_system.trust_score(h2.id, h1.id)
-    if t12 < threshold or t21 < threshold:
+    if t12 < threshold or t21 < threshold:  # default threshold = 0.7 (high trust)
         return 0, next_id
 
     # 3) energy check
@@ -400,9 +487,25 @@ def run_competition(
     threshold: float = 0.55
 ) -> None:
     """
-    Chaque membre du groupe regarde qui, parmi les autres, il
-    estime le plus (trust_score ≥ threshold). Si cette personne
-    a une memory_spot valide, il la suit demain.
+    Run leadership competition within a family group.
+    
+    Each family member evaluates others based on trust scores. Members
+    with trust scores above the threshold become potential leaders.
+    If a trusted member has a valid memory_spot (resource location),
+    other members will follow them the next day.
+    
+    Args:
+        family: List of humans in the same house
+        trust_system: Trust system for evaluating relationships
+        threshold: Minimum trust score to become a leader (default 0.55)
+        
+    Note:
+        This simulates social hierarchy formation through trust-based
+        leadership selection. Only affects the red house family.
+        
+    Example:
+        >>> red_family = [h for h in humans if h.home.color == (255, 0, 0)]
+        >>> run_competition(red_family, trust_system, threshold=0.6)
     """
  
     for member in family:
@@ -442,3 +545,47 @@ def run_competition(
         leader = next((h for h in family if h.id == leader_id), None)
         family_color = "Blue" if leader and leader.home.color == (0, 0, 128) else "Red" if leader and leader.home.color == (255, 0, 0) else str(leader.home.color) if leader else "Unknown"
         #print(f"Leader {leader_id} ({family_color}) is followed by: {followers}")
+
+
+
+def draw_human(screen, human: Human, cell_size: int, font: pygame.font.Font):
+    """
+    Draws a human as a circle, colored by its home.color,
+    with energy/sleep/bag bars underneath.
+    """
+    color = human.home.color
+    cx = human.x * cell_size + cell_size // 2
+    cy = human.y * cell_size + cell_size // 2
+    r  = cell_size * 1.4
+    # body
+    pygame.draw.circle(screen, color, (cx, cy), r)
+    # bar metrics
+    bar_w = cell_size * 2
+    bar_h = max(4, cell_size // 4)
+    bx = cx - bar_w // 2
+    y1 = cy + r + 2
+    y2 = y1 + bar_h + 2
+    y3 = y2 + bar_h + 2
+    # backgrounds
+    bg1 = pygame.Rect(bx, y1, bar_w, bar_h)
+    # bg2 = pygame.Rect(bx, y2, bar_w, bar_h)
+    bg3 = pygame.Rect(bx, y2, bar_w, bar_h)
+    pygame.draw.rect(screen, (50, 50, 50), bg1)
+    # pygame.draw.rect(screen, (50, 50, 50), bg2)
+    pygame.draw.rect(screen, (50, 50, 50), bg3)
+    # fills
+    e_frac = human.energy / human.max_energy if human.max_energy>0 else 0
+    # s_frac = human.sleep_count / human.max_sleep_count if human.max_sleep_count>0 else 0
+    b_frac = human.bag / human.bag_capacity if human.bag_capacity>0 else 0
+    pygame.draw.rect(screen, (0,255,0), (bx, y1, int(bar_w*e_frac), bar_h))
+    # pygame.draw.rect(screen, (0,128,255), (bx, y2, int(bar_w*s_frac), bar_h))
+    pygame.draw.rect(screen, (255,0,0), (bx, y2, int(bar_w*b_frac), bar_h))
+    # borders
+    pygame.draw.rect(screen, (0,0,0), bg1, 1)
+    # pygame.draw.rect(screen, (0,0,0), bg2, 1)
+    pygame.draw.rect(screen, (0,0,0), bg3, 1)
+
+
+
+
+
