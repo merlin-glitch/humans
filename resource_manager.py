@@ -14,11 +14,20 @@ import cv2
 import pygame
 from typing import Tuple, Dict, Optional
 from config import *
-from social_mechanics import draw_human
+from human import draw_human
 
 # resources[y, x, 0] = lifetime
 # resources[y, x, 1] = food_left
 resources = np.zeros((MAP_HEIGHT, MAP_WIDTH, 2), dtype=np.int32)
+
+# Optional runtime-override palette provided by UI/tools
+# Maps RGB tuples to zone IDs, same semantics as NEW_PALETTE
+ACTIVE_PALETTE: Optional[dict] = None
+
+def set_active_palette(palette: dict) -> None:
+    """Override the color→zone mapping used by zone detection and drawing."""
+    global ACTIVE_PALETTE
+    ACTIVE_PALETTE = dict(palette)
 
 FOOD_COLOR_BGR = (54, 109, 70)  # from config
 
@@ -34,6 +43,11 @@ def add_resource(x: int, y: int, life: int = FOOD_LIFETIME, food: int = FOOD_STA
     """Spawn resource at (x,y) with given life and food amount."""
     resources[y, x, 0] = life
     resources[y, x, 1] = min(FOOD_STACK, resources[y, x, 1] + food)
+def add_resource_infinite(x: int, y: int, food: int = 1) -> None:
+    """Spawn non-decaying resource at (x,y); lifetime -1 indicates no decay."""
+    resources[y, x, 0] = -1
+    resources[y, x, 1] = min(FOOD_STACK, resources[y, x, 1] + food)
+
     #print(f"[RESOURCE ADDED] at ({x},{y}) life={life}, food={resources[y, x, 1]}")
 
 def remove_resource(x: int, y: int) -> None:
@@ -59,8 +73,10 @@ def life_span_ressource() -> None:
         >>> life_span_ressource()
         >>> remaining_food = total_food()  # Should be <= initial_food
     """
-    resources[:, :, 0] -= 1
-    dead = resources[:, :, 0] <= 0
+    # Decrement lifetime for decaying resources only (lifetime >= 0)
+    mask_decay = resources[:, :, 0] >= 0
+    resources[:, :, 0][mask_decay] -= 1
+    dead = resources[:, :, 0] == 0
     resources[dead] = 0
 
 def total_food() -> int:
@@ -137,8 +153,11 @@ def identify_zones(map_image_path: str, min_size: int = 30, tol: int = 30) -> Tu
 
     zone_map = np.zeros((MAP_HEIGHT, MAP_WIDTH), dtype=np.int32)
 
+    # Use runtime palette override when provided
+    palette = ACTIVE_PALETTE if ACTIVE_PALETTE is not None else NEW_PALETTE
+
     # tolerant mapping for all colors except pure black (id 0)
-    for rgb, zone_id in NEW_PALETTE.items():
+    for rgb, zone_id in palette.items():
         rgb = np.array(rgb, dtype=np.int16)
         if zone_id == 0:
             # keep border strict
@@ -154,9 +173,10 @@ def identify_zones(map_image_path: str, min_size: int = 30, tol: int = 30) -> Tu
     inner[inner == 0] = 1
     zone_map[1:-1, 1:-1] = inner
 
-    # Connected components just for food zones (id 4), then relabel to >= 41 as you had
-    food_mask = (zone_map == 4).astype(np.uint8)
-    num_labels, labels = cv2.connectedComponents(food_mask)
+    # Connected components for food_1 (id 4) and food_2 (id 5)
+    # food_1 relabeled to 41+; food_2 relabeled to 81+
+    food_mask_1 = (zone_map == 4).astype(np.uint8)
+    num_labels, labels = cv2.connectedComponents(food_mask_1)
     sizes, centroids = {}, {}
     for i in range(1, num_labels):
         ys, xs = np.where(labels == i)
@@ -173,7 +193,7 @@ def identify_zones(map_image_path: str, min_size: int = 30, tol: int = 30) -> Tu
     for j, i in enumerate(sorted(large), start=1):
         new_id = base_id + j
         mapping[i] = new_id
-        food_ids[f"food_zone_{j}"] = new_id
+        food_ids[f"food1_zone_{j}"] = new_id
 
     for i in small:
         cx, cy = centroids[i]
@@ -182,6 +202,31 @@ def identify_zones(map_image_path: str, min_size: int = 30, tol: int = 30) -> Tu
 
     for i in range(1, num_labels):
         zone_map[labels == i] = mapping[i]
+
+    # Repeat for food_2 (id 5)
+    food_mask_2 = (zone_map == 5).astype(np.uint8)
+    num_labels2, labels2 = cv2.connectedComponents(food_mask_2)
+    sizes2, centroids2 = {}, {}
+    for i in range(1, num_labels2):
+        ys, xs = np.where(labels2 == i)
+        if xs.size == 0:
+            continue
+        sizes2[i] = xs.size
+        centroids2[i] = (np.mean(xs), np.mean(ys))
+    large2 = {i for i, s in sizes2.items() if s >= min_size}
+    small2 = {i for i, s in sizes2.items() if s < min_size}
+    base_id2 = 80
+    mapping2 = {}
+    for j, i in enumerate(sorted(large2), start=1):
+        new_id = base_id2 + j
+        mapping2[i] = new_id
+        food_ids[f"food2_zone_{j}"] = new_id
+    for i in small2:
+        cx, cy = centroids2[i]
+        nearest = min(large2, key=lambda j: (centroids2[j][0]-cx)**2 + (centroids2[j][1]-cy)**2)
+        mapping2[i] = mapping2[nearest]
+    for i in range(1, num_labels2):
+        zone_map[labels2 == i] = mapping2[i]
 
     print("Zones nourriture identifiées :", food_ids)
     return zone_map, food_ids
@@ -193,21 +238,20 @@ def resource_spawn_interval_inverse(
     f_avg: float,
     zone_id: int = 0,
     zone_map=None,
-    I_max: int = 50,   # Further reduced from 100 - much faster spawning
-    k: float = 2.0,    # Increased from 1.0 - much more responsive to consumption
-    I_min: int = 2,    # Reduced from 5 - very fast minimum spawning
+    I_max: int = 100,  # maximum interval (slowest respawn)
+    k: float = 4.0,    # responsiveness to consumption
+    I_min: int = 20,   # minimum interval (fastest respawn when consumption is low)
     stock_today=None,
     spawn_baseline: int = FOOD_SPAWN_COUNT,
     reset: bool = False,
-    cooldown_days: int = 2  # Reduced from 5 - very short cooldown periods
+    cooldown_days: int = 8  # longer cooldown when overexploited
 ) -> Optional[int]:
     """
     Compute adaptive respawn interval based on consumption patterns.
     
-    Implements an adaptive spawning system that adjusts food respawn rates
-    based on recent consumption. Higher consumption leads to faster respawn,
-    while low consumption leads to slower respawn. Includes cooldown periods
-    when zones become severely depleted.
+    Implements an adaptive spawning system where HIGHER consumption leads to
+    SLOWER respawn (resource depletion pressure). Lower consumption allows
+    faster recovery. Includes cooldown periods when zones become severely depleted.
     
     Args:
         f_avg: Average consumption rate for this zone
@@ -243,15 +287,18 @@ def resource_spawn_interval_inverse(
         if remaining > 0:
             cooldown_state[zone_id] = max(0, remaining - 1)
         else:
-            threshold = max(1, int(0.10 * spawn_baseline))
+            # Trigger cooldown aggressively when stock drops below 40% of baseline
+            threshold = max(1, int(0.40 * spawn_baseline))
             if stock_today < threshold:
                 cooldown_state[zone_id] = cooldown_days
 
     if cooldown_state.get(zone_id, 0) > 0:
         return None
 
-    interval = I_max / (1.0 + k * max(0.0, f_avg))
-    return max(I_min, int(interval))
+    # INVERTED LOGIC: Higher consumption (f_avg) → LONGER interval (slower respawn)
+    # This simulates resource depletion pressure
+    interval = I_min + (I_max - I_min) * (f_avg / (f_avg + 1.0))
+    return max(I_min, min(I_max, int(interval)))
 
 # ─────────────── Drawing / Pygame helpers ───────────────
 def map_draw(image_path: str):
@@ -261,14 +308,18 @@ def map_draw(image_path: str):
 
 def map_manage(zone_map):
     surf = pygame.Surface((MAP_WIDTH * CELL_SIZE, MAP_HEIGHT * CELL_SIZE))
-    rev_color = {v: k for k, v in NEW_PALETTE.items()}
+    palette = ACTIVE_PALETTE if ACTIVE_PALETTE is not None else NEW_PALETTE
+    rev_color = {v: k for k, v in palette.items()}
 
     for y in range(MAP_HEIGHT):
         for x in range(MAP_WIDTH):
             zone_id = zone_map[y, x]
-            if zone_id >= 40:
-                # show food zones in the palette dark green (id 4)
+            if 41 <= zone_id < 80:
+                # food_1 zones in palette dark green
                 color = rev_color.get(4, (54, 109, 70))
+            elif zone_id >= 80:
+                # food_2 zones in a distinct cyan/teal if not defined
+                color = rev_color.get(5, (0, 200, 200))
             else:
                 # fall back to grass (id 1) instead of dark gray/black
                 color = rev_color.get(zone_id, rev_color.get(1, (94, 185, 30)))
@@ -305,6 +356,13 @@ def pixel_update(screen, static_layer, humans, font):
 def display_house_storage(screen, houses, cell_size, font):
     """Draw storage info for each house."""
     for i, house in enumerate(houses):
-        txt = f"House {i} storage: {house.storage}"
+        # Use friendly names based on color
+        if house.color == (0, 0, 128):
+            name = "Blue"
+        elif house.color == (255, 0, 0):
+            name = "Red"
+        else:
+            name = f"{house.color}"
+        txt = f"House {name} storage: {house.storage}"
         surf = font.render(txt, True, (255,255,0))
         screen.blit(surf, (10, 30 + i*20))

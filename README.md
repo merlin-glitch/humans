@@ -52,36 +52,99 @@ The simulation features two competing families (Blue and Red houses) that must f
 
 ### Interactive UI Simulation
 
-Run the visual simulation with real-time controls:
+**Step-by-step launch procedure:**
 
-```bash
-python ui_simulation.py
-```
+1. **Activate virtual environment**:
+   ```bash
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-Features:
-- Real-time population visualization
-- Adjustable simulation speed
-- Pause/resume controls (Press 'P')
-- Parameter sliders for human count and speed
-- Export trust matrix functionality
+2. **Configure simulation** (optional):
+   - Edit `config.py` to adjust parameters (population, energy costs, food dynamics, etc.)
+   - Key settings: `Nbre_HUMANS`, `ENERGY_COST`, `MATING_COOLDOWN`, `FOOD_LIFETIME`
 
-### Headless Batch Simulations
+3. **Prepare map image**:
+   - Place your map PNG in the `images/` directory
+   - Update `MAP_IMAGE_PATH` in `ui_simulation.py` (default: `images/desert_oasis_well.png`)
+   - On first run, define color categories interactively:
+     - Wall colors (impassable terrain)
+     - House colors (spawn points)
+     - Food_1 colors (regenerative resources)
+     - Food_2 colors (finite resources)
+   - A JSON file is saved for reuse on subsequent runs
 
-Run multiple simulations for statistical analysis:
+4. **Launch the UI simulation**:
+   ```bash
+   python ui_simulation.py
+   ```
 
-```bash
-python batch_simulation.py
-```
+5. **Interactive controls**:
+   - **Human Slider (H)**: Set initial population (before start) or adjust during pause (cheat mode)
+   - **Trust Slider (T)**: Set leadership trust threshold (0.0-1.0)
+   - **Speed Slider**: Control simulation time speed
+   - **[P] key**: Pause/unpause
+   - **[R] key**: Toggle food respawn ON/OFF
+   - **[T] key**: Toggle trust system ON/OFF
+   - **Export button**: Save trust matrix and house movement data
+   - **Reset button**: Restart simulation
 
-This generates CSV data suitable for analysis and plotting.
+6. **Output files** (on export or quit):
+   - `trust_matrix.csv`: Trust relationships between all agents
+   - `house_movements.csv`: House relocation log
+   - `house_movement_plots/`: Analysis graphs and trajectory maps
+   - `blue_population.csv`, `red_population.csv`: Population time series
 
-### Generate Analysis Plots
+---
 
-Create comprehensive visualizations from batch results:
+### Headless Simulation
 
-```bash
-python batch_plot.py --csv batch_results/all_combined.csv --out plots/
-```
+**Step-by-step launch procedure:**
+
+1. **Activate virtual environment**:
+   ```bash
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+2. **Configure simulation**:
+   - Edit `config.py` for global settings
+   - Edit `batch_simulation.py` for batch-specific settings:
+     - `DAYS`: Number of simulation days per run
+     - `N_RUNS`: Number of independent runs
+     - `SEED_BASE`: Random seed base for reproducibility
+
+3. **Prepare map**:
+   - Set map path in `headless_simulation.py` or `batch_simulation.py`
+   - **Recommended:** Run UI simulation once with your map to generate `*_color_analysis.json`
+   - Headless will automatically load the JSON for consistent color mapping
+   - **Alternative:** Define colors in `config.py` NEW_PALETTE (less flexible)
+
+4. **Launch headless simulation**:
+   ```bash
+   # Single run
+   python headless_simulation.py
+   
+   # Batch runs (multiple seeds)
+   python batch_simulation.py
+   ```
+
+5. **Output files**:
+   - `batch_results/all_*_combined_sim_function.csv`: Combined results from all runs
+   - Individual run CSVs with time series data
+   - Per-run metrics (births, deaths, trust, resource consumption)
+
+6. **Generate analysis plots**:
+   ```bash
+   python batch_plot.py
+   ```
+   - Reads from `batch_results/all_*_combined_sim_function.csv`
+   - Outputs 6 essential plots to `batch_results/plots/` directory
+   - Includes:
+     - Population overview (with confidence bands)
+     - Trust evolution (within/between houses)
+     - Resource flow (spawn vs consumption balance)
+     - Zone exploitation (dominance by house)
+     - Survival analysis (extinction timing)
+     - Per-capita consumption metrics
 
 ## Project Structure
 
@@ -93,19 +156,19 @@ humans/
 ├── trust_system.py          # Trust system implementation
 ├── resource_manager.py      # Resource management and zone detection
 ├── social_mechanics.py      # Social interaction and trust mechanics
-├── simulation_utils.py      # World building and shared utilities
+├── simulation_utils.py      # World building and adaptive house relocation
 ├── ui_simulation.py         # Interactive UI simulation with pygame
 ├── headless_simulation.py   # Optimized headless simulation
 ├── batch_simulation.py      # Batch simulation runner
-├── batch_plot.py            # Comprehensive plotting suite
-├── visualization.py         # Spatial heatmap visualization
-├── ui_components.py         # UI components and controls
-├── plot_utils.py            # Simple plotting utilities
-├── validation_utils.py      # Testing and validation
-├── images/                  # Map images and assets
-├── batch_results/           # Simulation output data
-├── previews/                # Generated visualization frames
-├── docs/                    # Comprehensive documentation
+├── batch_plot.py            # Streamlined plotting suite (6 essential plots)
+├── ui_components.py         # UI widgets (sliders, buttons)
+├── map_color_tools.py       # Map color analysis and JSON generation
+├── tests.py                 # Testing, validation, and performance benchmarks
+├── images/                  # Map images and color mapping JSONs
+├── batch_results/           # Simulation output data and plots
+├── house_movement_plots/    # House relocation analysis visualizations
+├── docs/
+│   └── DOCUMENTATION.md     # Complete technical documentation
 └── venv/                    # Virtual environment
 ```
 
@@ -247,6 +310,33 @@ The simulation exports data in CSV format compatible with:
 - Machine learning frameworks
 - Custom analysis pipelines
 
+## Testing and Validation
+
+Run the comprehensive test suite:
+
+```bash
+# Run all tests (validation + performance)
+python tests.py --all
+
+# Run only validation tests
+python tests.py --validate
+
+# Run only performance benchmarks
+python tests.py --performance
+```
+
+Tests include:
+- Trust system consistency checks
+- House storage cap validation
+- Configuration parameter validation
+- Normalization factor verification
+- Performance benchmarking across different scales
+
+## Documentation
+
+For complete technical documentation, see:
+- **[docs/DOCUMENTATION.md](docs/DOCUMENTATION.md)** - Complete API reference, architecture, parameters, and extension points
+
 ## Troubleshooting
 
 ### Common Issues
@@ -255,11 +345,14 @@ The simulation exports data in CSV format compatible with:
 2. **Import errors**: Verify all dependencies are installed in the virtual environment
 3. **Memory issues**: Reduce `Nbre_HUMANS` or `MAP_WIDTH`/`MAP_HEIGHT` for large simulations
 4. **Slow performance**: Use `headless_simulation.py` for batch runs instead of the UI version
+5. **Map not loading**: Ensure corresponding `*_color_analysis.json` file exists in `images/` directory
+6. **Houses not moving**: Check normalization parameters in `config.py` (MAX_HOUSE_STORAGE, etc.)
 
 ### Performance Tips
 
 - Use `headless_simulation.py` for batch simulations
 - Use `ui_simulation.py` for interactive exploration
+- Run `python tests.py --performance` to benchmark your system
 - Reduce visualization frequency for large populations
 - Consider smaller map sizes for faster iteration
 

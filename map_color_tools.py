@@ -96,7 +96,24 @@ def _quantize_image(img: Image.Image, max_colors: int) -> Image.Image:
     else:
         base = img.convert("RGB")
 
-    return base.quantize(colors=max_colors, method=Image.Quantize.ADLAB).convert("RGB")
+    # Use a quantization method compatible with the installed Pillow
+    # Prefer ADLAB if available; otherwise fall back to FASTOCTREE or MEDIANCUT
+    try:
+        quantize_ns = getattr(Image, "Quantize", None)
+        if quantize_ns is not None:
+            method = getattr(quantize_ns, "ADLAB", None)
+            if method is None:
+                method = getattr(quantize_ns, "FASTOCTREE", None)
+            if method is None:
+                method = getattr(quantize_ns, "MEDIANCUT", 0)
+        else:
+            # Very old Pillow: the method can be an int (0=MEDIANCUT)
+            method = 0
+        q = base.quantize(colors=max_colors, method=method)
+    except Exception:
+        # Final safety fallback
+        q = base.quantize(colors=max_colors)
+    return q.convert("RGB")
 
 
 def _collect_palette(img: Image.Image) -> List[RGB]:

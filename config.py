@@ -30,27 +30,30 @@ NEW_PALETTE = {
     (54, 109, 70): 4,       # food zones (dark green)
 }
 # ── Resource parameters ────────────────────────────────────────────────────
-INITIAL_FOOD_COUNT = 500  # Starting food units (about 25 per human - very generous)
-SPAWN_INTERVAL     = 500  # Ticks between spawn events (legacy, now adaptive)
-FOOD_SPAWN_COUNT   = 100  # Food units spawned per event (increased from 50)
-FOOD_LIFETIME      = 9000  # Ticks before food disappears (45 days)
-FOOD_STACK        = 1000  # Maximum food units per cell (increased from 100)
+INITIAL_FOOD_COUNT = 500  # Starting food units (5 per human - generous start)
+FOOD_SPAWN_COUNT   = 100  # Food units spawned per respawn event
+FOOD_LIFETIME      = 9000 # Ticks before food_1 type disappears (45 days)
+FOOD_STACK         = 1000 # Maximum food units stackable per cell
 
 # ── Energy and reproduction ────────────────────────────────────────────────
-ENERGY_COST       = 8.0   # Energy required for mating (prevents rapid reproduction)
+ENERGY_COST       = 6.0   # Energy required for mating (prevents rapid reproduction)
 DAY_LENGTH        = 200   # Simulation ticks per day (70% day, 30% night)
-MATING_COOLDOWN   = 10 * DAY_LENGTH  # 10 days between mating attempts
+MATING_COOLDOWN   = 1 * DAY_LENGTH  # 10 days between mating attempts
 
 # ── Standardized agent behavior parameters ────────────────────────────────
 ACTION_COST       = 0.001 # Energy cost per action (further reduced from 0.005)
 FOOD_GAIN         = 5.0   # Energy gained from consuming food (increased from 2.0)
 ENERGY_DECAY_RATE = 0.001 # Energy decay rate per tick (further reduced from 0.002)
-TRUST_INCREMENT   = 0.001 # Trust increase when sharing resources
+TRUST_INCREMENT   = 0.01  # Trust increase when sharing resources (increased from 0.001 for faster trust building)
+TRUST_DECAY_AMOUNT = 0.05  # Trust decrease due to forgetting
+TRUST_DECAY_INTERVAL = 20  # Days between trust decay events
 
 # ── Feature flags ──────────────────────────────────────────────────────────────
 ENABLE_MATING = True      # Enable human reproduction
-COLLECT_METRICS = True    # Enable detailed metrics collection
-PER_ZONE_RESPAWN = True   # Enable per-zone resource spawning
+COLLECT_METRICS = True
+PER_ZONE_RESPAWN = True
+ENABLE_FOOD_RESPAWN = True  # Enable food respawning (can be toggled in UI)
+ENABLE_TRUST = True  # Enable trust system and cooperation (can be toggled in UI)
 
 # ── Configuration validation ──────────────────────────────────────────────────
 
@@ -143,3 +146,25 @@ def validate_config() -> None:
 
 # Auto-validate on import
 validate_config()
+
+# ── Adaptive Migration Parameters ─────────────────────────────────────────────
+# Weight for low storage
+HOUSE_RELOC_ALPHA1 = 1.0  # S importance
+# Weight for mean distance
+HOUSE_RELOC_ALPHA2 = 0.8  # D importance
+# Weight for local food
+HOUSE_RELOC_ALPHA3 = 1.2  # F importance
+# Movement cost coefficient
+HOUSE_RELOC_BETA   = 6.0
+# Energy cost to move (relative scale)
+HOUSE_RELOC_E_MOVE = 0.1
+# Normalization: house storage (maximum possible value for S)
+MAX_HOUSE_STORAGE = 5000.0  # Realistic cap for large households
+# Normalization: maximum expected daily travel for D (cells)
+HOUSE_MAX_TRAVEL_PER_DAY = 40.0
+# Normalization: local food radius and max food per cell
+HOUSE_LOCAL_RADIUS = 10
+MAX_FOOD_PER_CELL = 5.0
+# Inertia (memory of stability)
+HOUSE_INERTIA_STEP = 0.04  # increases by this if house doesn't move a day, resets to 0 on move
+HOUSE_INERTIA_MAX = 0.7    # cap inertia effect under 70%

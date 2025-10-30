@@ -7,6 +7,7 @@ Provides easy ways to configure simulation for different performance needs.
 
 import os
 import sys
+import tqdm
 
 def create_optimized_config():
     """Create an optimized configuration file for better performance."""
@@ -53,7 +54,7 @@ def show_optimization_menu():
     print("   • Standard metrics")
     print()
     print("3. 🔬 Research Mode (Slowest)")
-    print("   • Full population (20+20 humans)")
+    print("   • Full population (50+50 humans)")
     print("   • Long simulations (100+ days)")
     print("   • Detailed metrics")
     print()
@@ -99,7 +100,7 @@ def apply_speed_mode():
     """Apply speed mode optimizations."""
     print("\n🏃‍♂️ Applying Speed Mode optimizations...")
     
-    # Modify batch_simul.py
+    # Modify batch_simulation.py
     modify_batch_config(DAYS=10, N_RUNS=2)
     
     # Create optimized config
@@ -140,11 +141,11 @@ def apply_research_mode():
     """Apply research mode optimizations."""
     print("\n🔬 Applying Research Mode optimizations...")
     
-    modify_batch_config(DAYS=100, N_RUNS=10)
+    modify_batch_config(DAYS=300, N_RUNS=10)
     
     config = {
-        'INITIAL_BLUE_HUMANS': 20,
-        'INITIAL_RED_HUMANS': 20,
+        'INITIAL_BLUE_HUMANS': 50,
+        'INITIAL_RED_HUMANS': 50,
         'COLLECT_METRICS': True,
         'PER_ZONE_RESPAWN': True,
         'FAST_MODE': False,
@@ -187,9 +188,9 @@ def apply_custom_settings():
         print("❌ Invalid input. Using default values.")
 
 def modify_batch_config(DAYS=None, N_RUNS=None):
-    """Modify batch_simul.py configuration."""
+    """Modify batch_simulation.py configuration."""
     try:
-        with open("batch_simul.py", "r") as f:
+        with open("batch_simulation.py", "r") as f:
             content = f.read()
         
         if DAYS is not None:
@@ -198,11 +199,11 @@ def modify_batch_config(DAYS=None, N_RUNS=None):
         if N_RUNS is not None:
             content = content.replace("N_RUNS = 2", f"N_RUNS = {N_RUNS}")
         
-        with open("batch_simul.py", "w") as f:
+        with open("batch_simulation.py", "w") as f:
             f.write(content)
             
     except FileNotFoundError:
-        print("⚠️ batch_simul.py not found, skipping batch configuration")
+        print("⚠️ batch_simulation.py not found, skipping batch configuration")
 
 def apply_config_changes(config):
     """Apply configuration changes to config.py."""

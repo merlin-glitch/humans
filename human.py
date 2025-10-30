@@ -39,8 +39,8 @@ class House:
         self.storage = 0
 
     def deposit(self, amount: float) -> None:
-        """Add `amount` units into this house's storage."""
-        self.storage += round(amount)
+        """Add `amount` units into this house's storage, capped at 10,000."""
+        self.storage = min(10000, self.storage + round(amount))
 
 
 class Human:
@@ -465,12 +465,20 @@ class Human:
         if not self.alive:
             return None, False
 
-        if self.energy <= 3 and self.bag == 0:
+        # Priority 1: If critically low energy, eat from bag first
+        if self.energy < 5 and self.bag > 0:
+            self.eat(food_gain)
+            self.bag -= 1
+            return None, False
+        
+        # Priority 2: If still hungry and bag empty, go home to eat from storage
+        if self.energy < 5 and self.bag == 0:
             if (self.x, self.y) != (self.home_x, self.home_y):
                 self.move_towards(self.home_x, self.home_y, action_cost)
                 return None, False
+            # At home, eat from storage if available
             if self.home.storage > 0 and self.energy < self.max_energy:
-                self.eat(food_gain * 10)
+                self.eat(food_gain)
                 self.home.storage -= 1
             return None, False
 

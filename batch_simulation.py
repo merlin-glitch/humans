@@ -17,7 +17,7 @@ from headless_simulation import simulate_headless as simulate  # unified simulat
 
 # ── Config ───────────────────────────────────────────────────────────────
 N_RUNS = 10   # Reduced for faster testing
-DAYS   = 200  # Reduced for faster testing
+DAYS   = 300  # Reduced for faster testing
 
 SEED_BASE = 244          # per-run seed = SEED_BASE + run_idx
 SEEDS     = None         # or provide a list of explicit seeds (length >= N_RUNS)
@@ -27,7 +27,7 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 COMBINED_CSV = os.path.join(RESULTS_DIR, "all_244_combined_sim_function.csv")
 
 # Absolute path to the map image (fixes cv2.imread None error)
-MAP_PATH = os.path.join(os.path.dirname(__file__), "images", "3_spots.png")
+MAP_PATH = os.path.join(os.path.dirname(__file__), "images", "desert_basin.png")
 
 # ── Probe once to learn zone count & return shape ────────────────────────
 probe = simulate(num_days=1, seed=0, map_path=MAP_PATH, min_size=1, tol=20)

@@ -11,7 +11,7 @@ for the interactive simulation interface.
 import pygame
 
 class Slider:
-    def __init__(self, rect, min_val, max_val, initial, orientation='vertical'):
+    def __init__(self, rect, min_val, max_val, initial, orientation='vertical', *, label: str | None = None, quantize_to_int: bool | None = None):
         """
         A slider widget that can be vertical or horizontal.
 
@@ -27,6 +27,13 @@ class Slider:
         self.dragging    = False
         assert orientation in ('vertical','horizontal')
         self.orientation = orientation
+        # Optional label prefix rendered above the slider; defaults based on orientation
+        self.label        = label
+        # Quantization behavior: by default, vertical sliders snap to int; horizontal continuous
+        if quantize_to_int is None:
+            self.quantize_to_int = (orientation == 'vertical')
+        else:
+            self.quantize_to_int = bool(quantize_to_int)
 
     def knob_rect(self):
         """Returns a pygame.Rect for the knob based on current value & orientation."""
@@ -61,7 +68,10 @@ class Slider:
                 y    = max(self.rect.y, min(event.pos[1], self.rect.bottom))
                 frac = (y - self.rect.y) / self.rect.height
                 raw  = self.min + frac * (self.max - self.min)
-                self.value = float(int(round(raw)))
+                if self.quantize_to_int:
+                    self.value = float(int(round(raw)))
+                else:
+                    self.value = float(raw)
             else:
                 # clamp X and convert back to continuous value
                 x    = max(self.rect.x, min(event.pos[0], self.rect.right))
@@ -82,10 +92,19 @@ class Slider:
 
         # label
         if font:
-            if self.orientation == 'vertical':
-                text = f"H: {int(self.value)}"
+            # derive default label if not provided
+            if self.label is None:
+                if self.orientation == 'vertical':
+                    prefix = "H"
+                else:
+                    prefix = "Speed"
             else:
-                text = f"Speed: {self.value:.2f}"
+                prefix = self.label
+            # choose formatting based on quantization
+            if self.orientation == 'vertical' and self.quantize_to_int:
+                text = f"{prefix}: {int(self.value)}"
+            else:
+                text = f"{prefix}: {self.value:.2f}"
             lbl = font.render(text, True, (255,255,255))
 
             if self.orientation == 'vertical':

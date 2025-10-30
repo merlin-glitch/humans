@@ -1,0 +1,13 @@
+{
+  "map": "/home/oussama/ants/humans/humans/images/desert_basin.png",
+  "mapping": {
+    "burlywood": "grass",
+    "wheat": "grass",
+    "tan": "grass",
+    "slategray": "food_1",
+    "dodgerblue": "food_2",
+    "forestgreen": "food_2",
+    "navy": "house_blue",
+    "red": "house_red"
+  }
+}

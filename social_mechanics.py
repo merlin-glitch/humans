@@ -21,6 +21,7 @@ import pygame
 # Local imports
 from human import Human, House
 from trust_system import TrustSystem
+# Avoid module-level import to prevent circular dependency; import in-function when needed
 
 
 def boost_house_trust(
@@ -89,13 +90,20 @@ def export_trust_matrix(
         >>> # Creates a CSV with human IDs as headers and trust scores as values
     """
     ids = sorted(h.id for h in human_list)
+    id_to_human = {h.id: h for h in human_list}
     with open(filename, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow([""] + ids)
         for row_id in ids:
             row = [row_id]
             for col_id in ids:
-                row.append(f"{trust_system.trust_score(row_id, col_id):.3f}")
+                if row_id == col_id:
+                    # Use per-agent self-confidence as self-trust; default neutral 0.5
+                    h = id_to_human.get(row_id)
+                    self_trust = getattr(h, "self_confidence", 0.5) if h is not None else 0.5
+                    row.append(f"{float(self_trust):.3f}")
+                else:
+                    row.append(f"{trust_system.trust_score(row_id, col_id):.3f}")
             writer.writerow(row)
 
 
@@ -316,7 +324,7 @@ def to_mate(
     humans: List[Human],
     codes,                # your numpy map array
     next_id: int,
-    threshold: float = 0.7,
+    threshold: float = 0.65,
     energy_cost: float = 5.0
 ) -> Tuple[int, int]:
     """
@@ -541,10 +549,43 @@ def run_competition(
         if member._last_night_leader is not None:
             followers_by_leader.setdefault(member._last_night_leader, []).append(member.id)
 
-    for leader_id, followers in followers_by_leader.items():
+    # Evaluate leader coordinate correctness and adjust trust/benefits
+    for leader_id, follower_ids in followers_by_leader.items():
         leader = next((h for h in family if h.id == leader_id), None)
-        family_color = "Blue" if leader and leader.home.color == (0, 0, 128) else "Red" if leader and leader.home.color == (255, 0, 0) else str(leader.home.color) if leader else "Unknown"
-        #print(f"Leader {leader_id} ({family_color}) is followed by: {followers}")
+        if not leader or not leader.memory_spot:
+            continue
+        lx, ly = leader.memory_spot
+        # Local import to avoid circular dependency
+        from resource_manager import resources
+        h, w, _ = resources.shape
+        # clamp window
+        x0, x1 = max(0, lx-2), min(w-1, lx+2)
+        y0, y1 = max(0, ly-2), min(h-1, ly+2)
+        # correctness: any food present in spot neighborhood
+        correct = resources[ly, lx, 1] > 0 or (resources[y0:y1+1, x0:x1+1, 1].sum() > 0)
+
+        # optional self-confidence attribute
+        if not hasattr(leader, "self_confidence"):
+            leader.self_confidence = 0.5  # type: ignore[attr-defined]
+
+        if correct:
+            # followers trust leader more
+            for fid in follower_ids:
+                trust_system.increase_trust(trustor_id=fid, trustee_id=leader_id, increment=0.03, refresh=False)
+            # leader self-confidence up
+            leader.self_confidence = min(1.0, leader.self_confidence + 0.05)  # type: ignore[attr-defined]
+            # leaders take 10%: approximate by adding 1 unit per 10 followers to leader's bag
+            bonus = max(1, int(len(follower_ids) * 0.1))
+            leader.bag = min(leader.bag_capacity, leader.bag + bonus)
+        else:
+            # followers trust leader less
+            for fid in follower_ids:
+                trust_system.increase_trust(trustor_id=fid, trustee_id=leader_id, increment=-0.03, refresh=False)
+            # lower self-confidence
+            leader.self_confidence = max(0.0, leader.self_confidence - 0.05)  # type: ignore[attr-defined]
+
+    # flush cached trust lists once after batch updates
+    trust_system.flush()
 
 
 

@@ -17,10 +17,11 @@ from config import *  # constants like MAP_WIDTH, CELL_SIZE, DAY_LENGTH, etc.
 from social_mechanics import boost_house_trust, run_competition, to_mate, _avg_pairwise_trust
 from simulation_utils import (
     PER_ZONE_RESPAWN, COLLECT_METRICS, ENABLE_MATING,
-    build_world, draw_offscreen, seed_food, run_single_tick
+    build_world, draw_offscreen, seed_food, run_single_tick,
+    should_move_house, find_best_house_location
 )
 from resource_manager import (
-    resources, life_span_ressource, map_manage, resource_spawn_interval_inverse
+    resources, life_span_ressource, map_manage, resource_spawn_interval_inverse, add_resource
 )
 
 def simulate_headless(*, num_days: int, seed: Optional[int],
@@ -91,18 +92,59 @@ def simulate_headless(*, num_days: int, seed: Optional[int],
     total_ticks = int(num_days * DAY_LENGTH)
     last_mated = {}
     births_by_pair = {}
+    
+    # Initialize house attributes for adaptive relocation
+    for house in houses:
+        if not hasattr(house, "inertia"):
+            house.inertia = 0.0
 
     for t in range(1, total_ticks + 1):
         # Day/night cycle: 70% day, 30% night
         is_day = ((t - 1) % DAY_LENGTH) / DAY_LENGTH < 0.7
 
-        # Dawn: red-house competition (only at start of each day)
+        # Track per-human travel for adaptive house relocation
+        for h in humans:
+            if h.alive:
+                h.daily_travel = getattr(h, "daily_travel", 0.0)
+                h._last_x = getattr(h, "_last_x", h.x)
+                h._last_y = getattr(h, "_last_y", h.y)
+                movement = ((h.x - h._last_x) ** 2 + (h.y - h._last_y) ** 2) ** 0.5
+                h.daily_travel += movement
+                h._last_x = h.x
+                h._last_y = h.y
+
+        # Dawn: adaptive house relocation + leadership competition (at start of each day)
         if ((t - 1) % DAY_LENGTH) == 0 and houses:
+            # Adaptive house relocation at dawn (before competition)
+            for house in houses:
+                P_move = should_move_house(house, humans, resources)
+                if random.random() < P_move:
+                    old_x, old_y = house.x, house.y
+                    new_x, new_y = find_best_house_location(house, humans, resources)
+                    house.x, house.y = new_x, new_y
+                    house.inertia = 0.0
+                    # Move all humans in house
+                    for h in humans:
+                        if h.home is house and h.alive:
+                            h.home_x = new_x
+                            h.home_y = new_y
+                            h.x = new_x
+                            h.y = new_y
+                else:
+                    # Increase inertia if house didn't move
+                    house.inertia = min(1.0, getattr(house, "inertia", 0.0) + HOUSE_INERTIA_STEP)
+            
+            # Reset daily travel metrics
+            for h in humans:
+                if h.alive:
+                    h.daily_travel = 0.0
+            
+            # Competition for leadership
             for house in houses:
                 # Apply leadership competition to both blue and red houses
                 fam = [h for h in humans if h.alive and h.home is house]
                 if fam:
-                    run_competition(fam, trust)
+                    run_competition(fam, trust, threshold=0.55)
 
         # Resource decay
         life_span_ressource()
@@ -143,50 +185,33 @@ def simulate_headless(*, num_days: int, seed: Optional[int],
         if any(not hh.alive for hh in humans):
             humans[:] = [hh for hh in humans if hh.alive]
 
-        # ---- CONTINUOUS GUARANTEED FOOD SPAWNING ----
-        # Continuous system: spawn food every tick to meet consumption demands
-        if N_ZONES > 0:  # Every tick, spawn food
-            total_spawned_this_tick = 0
-            import random
-            
-            # Get all food cells from all zones
-            all_food_cells = []
-            for z in range(N_ZONES):
-                all_food_cells.extend(zones[z])
-            
-            if all_food_cells:
-                # Spawn 6 food units per tick (6 * 200 ticks = 1200 per day)
-                # This should match the consumption rate of ~1200 units per day
-                spawn_target = 6
-                attempts = 0
-                max_attempts = spawn_target * 10  # Try up to 10x the target to find empty cells
-                
-                while total_spawned_this_tick < spawn_target and attempts < max_attempts:
-                    x, y = random.choice(all_food_cells)
-                    if resources[y, x, 1] < FOOD_STACK:
-                        resources[y, x, 1] += 1
-                        resources[y, x, 0] = FOOD_LIFETIME
-                        total_spawned_this_tick += 1
-                    attempts += 1
-                
-                # Debug output (less frequent to avoid spam)
-                if t % 1000 == 0:
-                    print(f"DEBUG: Tick {t} - Continuous spawned {total_spawned_this_tick} food units")
-                
-                # Update metrics if available
-                if COLLECT_METRICS and per_zone:
-                    # Distribute spawned count across zones
-                    per_zone_per_tick = total_spawned_this_tick // N_ZONES if N_ZONES > 0 else 0
-                    for z in range(N_ZONES):
-                        per_zone["spawned_today"][z] += per_zone_per_tick
-        
-        # ---- Per-zone respawn logic (legacy, now disabled) ----
-        elif PER_ZONE_RESPAWN and per_zone and food_zone_ids and N_ZONES:
+        # ---- Adaptive per-zone respawn (type1 food only, overexploitation-aware) ----
+        # Only respawn if ENABLE_FOOD_RESPAWN flag is True
+        if ENABLE_FOOD_RESPAWN and PER_ZONE_RESPAWN and per_zone and food_zone_ids and N_ZONES:
             pick_histories = per_zone["pick_histories"]
             I_MAX = per_zone["I_MAX"]; K_GAIN = per_zone["K_GAIN"]; I_MIN = per_zone["I_MIN"]
             SPAWN_COUNT = per_zone["SPAWN_COUNT"]
-        else:
-            # Legacy global respawn path
+            
+            for zi in range(N_ZONES):
+                pick_histories[zi].append(picks_this_tick[zi] if picks_this_tick else 0)
+                avg_pick = (sum(pick_histories[zi])/len(pick_histories[zi])) if pick_histories[zi] else 0.0
+                stock = resources[:, :, 1][zone_map == food_zone_ids[zi]].sum() if zi < len(food_zone_ids) else 0
+                interval = resource_spawn_interval_inverse(
+                    avg_pick, zone_id=food_zone_ids[zi], zone_map=zone_map,
+                    I_max=I_MAX[zi], k=K_GAIN[zi], I_min=I_MIN[zi], stock_today=stock
+                )
+                if interval and (t % interval == 0):
+                    spawned_now = 0
+                    for _ in range(SPAWN_COUNT[zi]):
+                        if zones[zi]:
+                            x, y = random.choice(zones[zi])
+                            if resources[y, x, 1] < FOOD_STACK:
+                                add_resource(x, y)
+                                spawned_now += 1
+                    if COLLECT_METRICS:
+                        per_zone["spawned_today"][zi] += spawned_now
+        elif ENABLE_FOOD_RESPAWN:
+            # Legacy global respawn path (only if respawn enabled)
             pick_history_global.append(picked_this_tick_total)
             avg_pick = (sum(pick_history_global)/len(pick_history_global)) if pick_history_global else 0.0
             interval = resource_spawn_interval_inverse(avg_pick)
@@ -203,6 +228,26 @@ def simulate_headless(*, num_days: int, seed: Optional[int],
         if (t % DAY_LENGTH) == 0:
             day = t // DAY_LENGTH
             trust.flush()
+            
+            # Trust decay (forgetting) - apply every TRUST_DECAY_INTERVAL days
+            if day % TRUST_DECAY_INTERVAL == 0 and day > 0:
+                for h in humans:
+                    if h.alive:
+                        trust.init_human(h.id)
+                        if h.id in trust.hints:
+                            data = trust.hints[h.id]
+                            size = data.get("size", 0)
+                            if size == 0:
+                                size = len(data.get("index", {}))
+                                data["size"] = size
+                            for other_id in list(data.get("index", {}).keys()):
+                                trust.increase_trust(
+                                    trustor_id=h.id,
+                                    trustee_id=other_id,
+                                    increment=-TRUST_DECAY_AMOUNT,
+                                    refresh=False
+                                )
+                trust.flush()
 
             # Mating (same logic; trust threshold/energy cost unchanged)
             if ENABLE_MATING and humans:
