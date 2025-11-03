@@ -39,8 +39,8 @@ class House:
         self.storage = 0
 
     def deposit(self, amount: float) -> None:
-        """Add `amount` units into this house's storage, capped at 10,000."""
-        self.storage = min(10000, self.storage + round(amount))
+        """Add `amount` units into this house's storage, capped at 5,000."""
+        self.storage = min(5000, self.storage + round(amount))
 
 
 class Human:
@@ -262,7 +262,7 @@ class Human:
     def deposit_food(self) -> None:
         """Deposit all bag contents into house storage."""
         if self.bag > 0:
-            self.home.storage += self.bag
+            self.home.deposit(self.bag)  # Use deposit() to apply 10,000 cap
             self.contributed += self.bag
             self.bag = 0
 

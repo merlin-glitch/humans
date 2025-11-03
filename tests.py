@@ -247,11 +247,11 @@ def validate_house_storage() -> bool:
         
         # Test storage cap
         house.deposit(15000)  # Try to exceed cap
-        if house.storage != 10000:
-            print(f"  ❌ Expected storage capped at 10000, got {house.storage}")
+        if house.storage != 5000:
+            print(f"  ❌ Expected storage capped at 5000, got {house.storage}")
             return False
         
-        print(f"  ✓ Storage cap works: {house.storage} (capped at 10,000)")
+        print(f"  ✓ Storage cap works: {house.storage} (capped at 5,000)")
         
         print("✅ House storage validation passed")
         return True

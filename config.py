@@ -30,10 +30,10 @@ NEW_PALETTE = {
     (54, 109, 70): 4,       # food zones (dark green)
 }
 # ── Resource parameters ────────────────────────────────────────────────────
-INITIAL_FOOD_COUNT = 500  # Starting food units (5 per human - generous start)
-FOOD_SPAWN_COUNT   = 100  # Food units spawned per respawn event
-FOOD_LIFETIME      = 9000 # Ticks before food_1 type disappears (45 days)
-FOOD_STACK         = 1000 # Maximum food units stackable per cell
+INITIAL_FOOD_COUNT = 50  # Starting food units (5 per human - generous start)
+FOOD_SPAWN_COUNT   = 10  # Food units spawned per respawn event
+FOOD_LIFETIME      = 900 # Ticks before food_1 type disappears (45 days)
+FOOD_STACK         = 50 # Maximum food units stackable per cell
 
 # ── Energy and reproduction ────────────────────────────────────────────────
 ENERGY_COST       = 6.0   # Energy required for mating (prevents rapid reproduction)
@@ -149,22 +149,22 @@ validate_config()
 
 # ── Adaptive Migration Parameters ─────────────────────────────────────────────
 # Weight for low storage
-HOUSE_RELOC_ALPHA1 = 1.0  # S importance
+HOUSE_RELOC_ALPHA1 = 1.5  # S importance (increased: storage matters more)
 # Weight for mean distance
-HOUSE_RELOC_ALPHA2 = 0.8  # D importance
+HOUSE_RELOC_ALPHA2 = 1.0  # D importance (increased: travel distance more important)
 # Weight for local food
-HOUSE_RELOC_ALPHA3 = 1.2  # F importance
+HOUSE_RELOC_ALPHA3 = 2.0  # F importance (increased: food availability critical)
 # Movement cost coefficient
-HOUSE_RELOC_BETA   = 6.0
+HOUSE_RELOC_BETA   = 10.0  # Increased to reduce excessive movement (was 6.0)
 # Energy cost to move (relative scale)
-HOUSE_RELOC_E_MOVE = 0.1
+HOUSE_RELOC_E_MOVE = 0.3  # Increased movement cost (was 0.1)
 # Normalization: house storage (maximum possible value for S)
-MAX_HOUSE_STORAGE = 5000.0  # Realistic cap for large households
+MAX_HOUSE_STORAGE = 5000.0  # Match house.deposit() cap
 # Normalization: maximum expected daily travel for D (cells)
-HOUSE_MAX_TRAVEL_PER_DAY = 40.0
+HOUSE_MAX_TRAVEL_PER_DAY = 100.0  # Increased: humans travel farther (was 40.0)
 # Normalization: local food radius and max food per cell
 HOUSE_LOCAL_RADIUS = 10
-MAX_FOOD_PER_CELL = 5.0
+MAX_FOOD_PER_CELL = 1000.0  # FIXED: must match FOOD_STACK! (was 5.0)
 # Inertia (memory of stability)
-HOUSE_INERTIA_STEP = 0.04  # increases by this if house doesn't move a day, resets to 0 on move
-HOUSE_INERTIA_MAX = 0.7    # cap inertia effect under 70%
+HOUSE_INERTIA_STEP = 0.1  # Faster inertia buildup (was 0.04)
+HOUSE_INERTIA_MAX = 0.8    # Higher max inertia for more stability (was 0.7)

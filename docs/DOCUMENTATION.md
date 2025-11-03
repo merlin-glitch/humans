@@ -37,7 +37,7 @@ The Human Society Simulation is a modular agent-based system with clear separati
 **House Class**
 - Safe zones serving as resource storage and family centers
 - Color-coded for competing families (Blue vs Red)
-- Storage tracking with 10,000 unit maximum capacity
+- Storage tracking with 5,000 unit maximum capacity
 - Adaptive relocation system based on environmental factors
 - Inertia mechanism to prevent excessive movement
 
@@ -210,14 +210,14 @@ House(x: int, y: int, color: Tuple[int, int, int])
 ```
 
 **Attributes:**
-- `storage`: Current food storage (max: 10,000)
+- `storage`: Current food storage (max: 5,000)
 - `color`: RGB tuple for visualization
 - `inertia`: Movement stability memory (0.0-1.0)
 
 **Methods**
 
 ##### `deposit(amount: float) -> None`
-Add food to storage, capped at 10,000 units.
+Add food to storage, capped at 5,000 units.
 
 ### Core Functions
 
@@ -358,7 +358,7 @@ Generate comprehensive house movement analysis plots (3x2 layout).
 - Effect: Base energy cost of moving
 
 **`MAX_HOUSE_STORAGE`**
-- Default: 10,000.0
+- Default: 5,000.0
 - Effect: Maximum storage and normalization factor
 
 **`HOUSE_MAX_TRAVEL_PER_DAY`**

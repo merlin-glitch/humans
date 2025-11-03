@@ -78,11 +78,13 @@ def find_best_house_location(house, humans, resources, max_move_distance=2):
         return (house.x, house.y)
     zone_map = members[0].codes  # All humans share same codes (zone_map)
     
-    radius = HOUSE_LOCAL_RADIUS
+    # Search in a wider radius for better positions
+    search_radius = HOUSE_LOCAL_RADIUS * 2  # 20 cells to find optimal location
     best_score = -1
     best_pos = (house.x, house.y)
-    for dy in range(-radius, radius + 1):
-        for dx in range(-radius, radius + 1):
+    
+    for dy in range(-search_radius, search_radius + 1):
+        for dx in range(-search_radius, search_radius + 1):
             nx, ny = house.x + dx, house.y + dy
             if not (0 <= nx < resources.shape[1] and 0 <= ny < resources.shape[0]):
                 continue
@@ -98,12 +100,15 @@ def find_best_house_location(house, humans, resources, max_move_distance=2):
             if zone_id >= 40:  # food zones (41+ for food1, 81+ for food2)
                 continue
             
-            # Calculate local food density (nearby food, not on the house spot)
-            y0 = max(0, ny - 2)
-            y1 = min(resources.shape[0] - 1, ny + 2)
-            x0 = max(0, nx - 2)
-            x1 = min(resources.shape[1] - 1, nx + 2)
+            # Calculate local food density using SAME radius as should_move_house
+            # This ensures consistency between decision and target selection
+            y0 = max(0, ny - HOUSE_LOCAL_RADIUS)
+            y1 = min(resources.shape[0] - 1, ny + HOUSE_LOCAL_RADIUS)
+            x0 = max(0, nx - HOUSE_LOCAL_RADIUS)
+            x1 = min(resources.shape[1] - 1, nx + HOUSE_LOCAL_RADIUS)
             local_food = resources[y0:y1+1, x0:x1+1, 1].sum()
+            
+            # Prefer positions with more local food
             if local_food > best_score:
                 best_score = local_food
                 best_pos = (nx, ny)

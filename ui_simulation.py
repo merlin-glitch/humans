@@ -40,7 +40,7 @@ from simulation_utils import build_world, run_single_tick, should_move_house, fi
 from map_color_tools import extract_colors_and_prompt, _unique_colors_rgb, _quantize_image, _rgb_to_css4_name
 
 # Single source of truth for the UI map image path
-MAP_IMAGE_PATH = os.path.join(os.path.dirname(__file__), "images", "desert_oasis.png")
+MAP_IMAGE_PATH = os.path.join(os.path.dirname(__file__), "images", "desert_basin.png")
 
 # ────────────────────────────────────────────────
 # Map Color Analysis Functions

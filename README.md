@@ -19,8 +19,9 @@ The simulation features two competing families (Blue and Red houses) that must f
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- Virtual environment (recommended)
+- **Python 3.10 or higher** (tested with Python 3.12)
+- **Virtual environment** (strongly recommended)
+- A display for UI mode (or set `SDL_VIDEODRIVER=dummy` for headless)
 
 ### Setup
 
@@ -30,25 +31,56 @@ The simulation features two competing families (Blue and Red houses) that must f
    cd humans
    ```
 
-2. **Create and activate virtual environment**:
+2. **Create and activate virtual environment** (⚠️ REQUIRED):
    ```bash
-   python -m venv venv
+   python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
+   
+   **Important**: You must activate the virtual environment every time you open a new terminal before running any scripts.
 
 3. **Install dependencies**:
    ```bash
-   # Full installation with all dependencies
+   # Full installation with all dependencies (recommended)
    pip install -r requirements.txt
    
    # Or minimal installation (core dependencies only)
    pip install -r requirements-minimal.txt
    
+   # Or development installation (includes testing tools)
+   pip install -r requirements-dev.txt
+   
    # Or manual installation
-   pip install numpy pandas matplotlib pygame pygame-menu opencv-python tqdm pillow
+   pip install numpy pandas matplotlib pygame pygame-menu opencv-python tqdm pillow seaborn scipy networkx
    ```
 
 ## Quick Start
+
+### Absolute Beginner - Quick Test Run
+
+**If you just want to see it working immediately:**
+
+1. Make sure you're in the project directory with virtual environment activated:
+   ```bash
+   source venv/bin/activate
+   ```
+
+2. Run the UI simulation with the default map:
+   ```bash
+   python ui_simulation.py
+   ```
+
+3. If this is your first time with the default map, you'll be prompted to define color categories interactively. Simply follow the prompts to categorize colors as:
+   - **Wall** (impassable terrain - black borders)
+   - **House** (spawn points - blue and red areas)
+   - **Food_1** (regenerative resources - green/brown areas)
+   - **Food_2** (finite resources - optional)
+
+4. Once the menu appears, click **"Start"** and watch the simulation run!
+
+5. Use **[P]** to pause/unpause, adjust sliders to experiment, and explore the controls.
+
+---
 
 ### Interactive UI Simulation
 
@@ -146,30 +178,157 @@ The simulation features two competing families (Blue and Red houses) that must f
      - Survival analysis (extinction timing)
      - Per-capita consumption metrics
 
+---
+
+## Additional Utilities
+
+### Performance Optimization Tool
+
+**`optimize_simulation.py`** - Interactive performance configuration helper
+
+```bash
+python optimize_simulation.py
+```
+
+This tool provides an interactive menu to optimize simulation performance for different use cases:
+- **Speed Mode**: Fastest execution with reduced population (5+5 humans, 10 days)
+- **Balanced Mode**: Good performance with reasonable detail (20+20 humans, 50 days)
+- **Quality Mode**: Full detail for research-grade simulations (50+50 humans, 100+ days)
+
+The script creates `config_performance.py` with optimized settings that you can import or copy into your main `config.py`.
+
+**Use cases:**
+- Quick testing during development
+- Finding optimal parameters for your hardware
+- Benchmarking different configurations
+
+---
+
+### Spatial Visualization
+
+**`visualization_fixed.py`** - Generate spatial heatmaps of resource exploitation
+
+```bash
+python visualization_fixed.py
+```
+
+Creates overlay heatmaps showing:
+- Blue vs Red family resource consumption patterns
+- Zone-specific exploitation intensity
+- Spatial distribution of foraging activity
+- Consumption patterns overlaid on the actual map
+
+**Requirements:**
+- Batch simulation results in `batch_results/`
+- Zone coordinates file (generated automatically)
+- Map image from simulation
+
+**Output:** High-resolution spatial heatmaps in `batch_results/` or specified directory.
+
+---
+
+### Zone Coordinate Extraction
+
+**`generate_coords.py`** - Extract zone coordinates from map images
+
+```bash
+# Generate coordinates from a map
+python generate_coords.py
+```
+
+This utility analyzes your map image and extracts the exact coordinates of each food zone, creating a `resources_coords.csv` file used by visualization tools.
+
+**Use cases:**
+- Setting up visualizations for custom maps
+- Verifying zone detection accuracy
+- Debugging map configuration issues
+
+**Functions:**
+- `generate_coords_from_simulation(map_path)`: Extract coordinates from map
+- `generate_coords_from_batch_data(data_path)`: Infer zones from batch results
+
+---
+
+### Custom Map Setup Guide
+
+**First-Time Map Setup Process:**
+
+1. Place your PNG map in the `images/` directory
+2. Edit the map path in `ui_simulation.py` or `headless_simulation.py`:
+   ```python
+   MAP_IMAGE_PATH = "images/your_map_name.png"
+   ```
+
+3. Run the UI simulation for the first time:
+   ```bash
+   python ui_simulation.py
+   ```
+
+4. **Interactive color definition** (one-time setup):
+   - The system will display all unique colors found in your map
+   - For each color, you'll be asked to categorize it as:
+     - **Wall**: Impassable terrain (borders, obstacles)
+     - **House**: Spawn points for Blue/Red families
+     - **Food_1**: Regenerative food zones (decay and respawn)
+     - **Food_2**: Finite resources (no respawn)
+     - **Background**: Empty walkable space
+
+5. Your choices are saved to `images/your_map_name.png_color_analysis.json`
+
+6. All future runs (UI or headless) automatically load this JSON file - no re-prompting!
+
+**Tips:**
+- Use distinct colors for different terrain types
+- Walls should form closed borders to keep agents in bounds
+- Houses should be small, distinct colored areas
+- Food zones work best as connected regions (not scattered pixels)
+- Keep maps to reasonable sizes (100×60 to 200×120 cells) for performance
+
 ## Project Structure
 
 ```
 humans/
 ├── README.md                 # This file
-├── config.py                 # Configuration constants and parameters
-├── human.py                  # Human and House agent classes
-├── trust_system.py          # Trust system implementation
-├── resource_manager.py      # Resource management and zone detection
-├── social_mechanics.py      # Social interaction and trust mechanics
-├── simulation_utils.py      # World building and adaptive house relocation
-├── ui_simulation.py         # Interactive UI simulation with pygame
-├── headless_simulation.py   # Optimized headless simulation
-├── batch_simulation.py      # Batch simulation runner
-├── batch_plot.py            # Streamlined plotting suite (6 essential plots)
-├── ui_components.py         # UI widgets (sliders, buttons)
-├── map_color_tools.py       # Map color analysis and JSON generation
-├── tests.py                 # Testing, validation, and performance benchmarks
-├── images/                  # Map images and color mapping JSONs
-├── batch_results/           # Simulation output data and plots
-├── house_movement_plots/    # House relocation analysis visualizations
 ├── docs/
 │   └── DOCUMENTATION.md     # Complete technical documentation
-└── venv/                    # Virtual environment
+│
+├── Core Simulation Files
+│   ├── config.py                 # Configuration constants and parameters
+│   ├── human.py                  # Human and House agent classes
+│   ├── trust_system.py          # Trust system implementation
+│   ├── resource_manager.py      # Resource management and zone detection
+│   ├── social_mechanics.py      # Social interaction and trust mechanics
+│   └── simulation_utils.py      # World building and adaptive house relocation
+│
+├── Simulation Runners
+│   ├── ui_simulation.py         # Interactive UI simulation with pygame
+│   ├── headless_simulation.py   # Optimized headless simulation
+│   └── batch_simulation.py      # Batch simulation runner (multiple seeds)
+│
+├── Analysis & Visualization
+│   ├── batch_plot.py            # Streamlined plotting suite (6 essential plots)
+│   ├── visualization_fixed.py   # Spatial heatmaps of resource exploitation
+│   ├── generate_coords.py       # Zone coordinate extraction from maps
+│   └── plot_utils.py            # Additional plotting utilities
+│
+├── Utilities & Tools
+│   ├── ui_components.py         # UI widgets (sliders, buttons)
+│   ├── map_color_tools.py       # Map color analysis and JSON generation
+│   ├── optimize_simulation.py   # Performance optimization helper
+│   └── tests.py                 # Testing, validation, and performance benchmarks
+│
+├── Configuration Files
+│   ├── requirements.txt         # Full dependencies
+│   ├── requirements-minimal.txt # Core dependencies only
+│   └── requirements-dev.txt     # Development and testing tools
+│
+├── Data & Output Directories
+│   ├── images/                  # Map images and color mapping JSONs
+│   ├── batch_results/           # Simulation output data and plots
+│   │   └── plots/              # Generated visualization plots
+│   └── house_movement_plots/    # House relocation analysis visualizations
+│
+└── venv/                        # Virtual environment (created during setup)
 ```
 
 ## Configuration
@@ -341,21 +500,140 @@ For complete technical documentation, see:
 
 ### Common Issues
 
-1. **Pygame display errors**: Ensure you have a display available or set `SDL_VIDEODRIVER=dummy` for headless mode
-2. **Import errors**: Verify all dependencies are installed in the virtual environment
-3. **Memory issues**: Reduce `Nbre_HUMANS` or `MAP_WIDTH`/`MAP_HEIGHT` for large simulations
-4. **Slow performance**: Use `headless_simulation.py` for batch runs instead of the UI version
-5. **Map not loading**: Ensure corresponding `*_color_analysis.json` file exists in `images/` directory
-6. **Houses not moving**: Check normalization parameters in `config.py` (MAX_HOUSE_STORAGE, etc.)
+1. **"ModuleNotFoundError" or Import errors**: 
+   - Make sure you activated the virtual environment: `source venv/bin/activate`
+   - Verify all dependencies are installed: `pip install -r requirements.txt`
+   - Check you're in the correct directory (project root)
+
+2. **Pygame display errors**: 
+   - Ensure you have a display available
+   - For true headless mode (no display needed), set: `export SDL_VIDEODRIVER=dummy` before running
+   - On remote servers, use `headless_simulation.py` instead of `ui_simulation.py`
+
+3. **"cv2.imread returns None" or map loading errors**:
+   - Verify the map file exists in the `images/` directory
+   - Check the file path is correct (use absolute paths if needed)
+   - Ensure the file is a valid PNG image
+   - Verify file permissions (readable)
+
+4. **Color mapping issues** (first run with new map):
+   - If prompted repeatedly for colors, check your responses are valid
+   - Delete the `*_color_analysis.json` file to restart the color definition process
+   - Ensure your map has distinct colors (not gradients or anti-aliasing)
+
+5. **Memory issues or crashes**: 
+   - Reduce `Nbre_HUMANS` in `config.py` (try starting with 10-20)
+   - Reduce `MAP_WIDTH`/`MAP_HEIGHT` for large simulations
+   - Use `optimize_simulation.py` to create a performance-optimized configuration
+   - Close other memory-intensive applications
+
+6. **Slow performance**: 
+   - Use `headless_simulation.py` for batch runs instead of the UI version
+   - Reduce population size and map dimensions
+   - Disable detailed metrics collection (`COLLECT_METRICS = False` in `simulation_utils.py`)
+   - Run `python tests.py --performance` to benchmark your system
+
+7. **Map not loading in headless mode**: 
+   - Ensure corresponding `*_color_analysis.json` file exists in `images/` directory
+   - Run UI simulation once first to generate the JSON file
+   - Or manually define colors in `config.py` NEW_PALETTE
+
+8. **Houses not moving**: 
+   - Check normalization parameters in `config.py` (`MAX_HOUSE_STORAGE`, `HOUSE_MAX_TRAVEL_PER_DAY`, etc.)
+   - Verify house relocation weights (`HOUSE_RELOC_ALPHA1`, `ALPHA2`, `ALPHA3`, `BETA`)
+   - Enable relocation debugging by checking `house_movements.csv` output
+   - Increase pressure by adjusting alpha/beta parameters
+
+9. **No plots generated**:
+   - Verify `batch_results/` directory exists and contains CSV data
+   - Check that `matplotlib` and `seaborn` are installed
+   - Ensure the CSV file format matches expected columns
+   - Run with `python batch_plot.py --verbose` for detailed error messages
+
+10. **Virtual environment issues**:
+    - If commands fail, always verify venv is activated: `which python` should point to `./venv/bin/python`
+    - Recreate venv if corrupted: `rm -rf venv && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt`
 
 ### Performance Tips
 
 - Use `headless_simulation.py` for batch simulations
 - Use `ui_simulation.py` for interactive exploration
+- Use `optimize_simulation.py` to auto-configure for your needs
 - Run `python tests.py --performance` to benchmark your system
 - Reduce visualization frequency for large populations
 - Consider smaller map sizes for faster iteration
 
+---
 
+## Typical Workflow
+
+### For First-Time Users
+
+1. **Setup**: Install dependencies and activate virtual environment
+2. **Quick test**: Run `python ui_simulation.py` with default map
+3. **Define colors**: Interactively categorize map colors (one-time setup)
+4. **Explore**: Use UI controls to experiment with parameters
+5. **Export data**: Use Export button to save results
+
+### For Research & Analysis
+
+1. **Configure**: Edit `config.py` or use `optimize_simulation.py` for optimal settings
+2. **Setup map**: Place custom map in `images/` and run UI once to define colors
+3. **Batch runs**: Execute `python batch_simulation.py` for multiple seeds
+4. **Analyze**: Run `python batch_plot.py` to generate comprehensive visualizations
+5. **Spatial analysis**: Use `python visualization_fixed.py` for heatmaps
+6. **Custom analysis**: Export CSV data for external analysis tools
+
+### For Development & Testing
+
+1. **Test setup**: Run `python tests.py --all` to verify installation
+2. **Benchmark**: Run `python tests.py --performance` to check system capabilities
+3. **Iterate**: Make changes to config or code
+4. **Validate**: Test with UI simulation first, then batch runs
+5. **Analyze**: Generate plots and review metrics
+
+---
+
+## Quick Reference
+
+### Essential Commands
+
+```bash
+# Activate environment (always required first)
+source venv/bin/activate
+
+# Interactive simulation with UI
+python ui_simulation.py
+
+# Single headless run
+python headless_simulation.py
+
+# Batch runs (multiple seeds)
+python batch_simulation.py
+
+# Generate analysis plots
+python batch_plot.py
+
+# Performance optimization helper
+python optimize_simulation.py
+
+# Spatial heatmap visualization
+python visualization_fixed.py
+
+# Run all tests
+python tests.py --all
+```
+
+### Key Files to Know
+
+- **config.py**: All simulation parameters (edit this to customize behavior)
+- **images/*.png**: Your map files
+- **images/*.json**: Color mappings (auto-generated, one per map)
+- **batch_results/*.csv**: Simulation output data
+- **batch_results/plots/**: Generated visualizations
+- **trust_matrix.csv**: Exported trust relationships
+- **house_movements.csv**: House relocation log
+
+---
 
 *This simulation represents a complex multi-agent system modeling human social behavior. The emergent patterns observed reflect both the programmed mechanics and the stochastic nature of agent interactions, providing insights into how individual behaviors can lead to collective social structures.*
